@@ -1,22 +1,33 @@
 """
-Ergonomic Posture Detection Agent
-A FastAPI-based AI Worker Agent that analyzes user posture using MediaPipe Pose and OpenCV.
-Follows strict Agent Format Guide specifications.
+Ergonomic Posture Detection Agent - FIXED NON-BLOCKING VERSION
+TensorFlow 2.18 Compatible - Fixed Connection Timeout Issues
 """
 
 import io
 import time
 import base64
 import logging
+import json
+import asyncio
+import threading
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
 import cv2
 import numpy as np
 import mediapipe as mp
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# TensorFlow for trained model
+try:
+    import tensorflow as tf
+    TF_AVAILABLE = True
+except ImportError:
+    TF_AVAILABLE = False
+    logging.warning("TensorFlow not available. Deep learning features disabled.")
 
 # ==================== Configuration ====================
 logging.basicConfig(
@@ -25,14 +36,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Agent metadata - MUST match format guide
-AGENT_NAME = "ergonomic-posture-agent"  # FIXED: lowercase with dashes
-AGENT_VERSION = "1.0.0"
-
-# Track uptime
+AGENT_NAME = "ergonomic-posture-agent"
+AGENT_VERSION = "2.0.1"
 START_TIME = time.time()
 
-# ==================== Pydantic Models (Format Guide Compliant) ====================
+# Deep Learning Model Configuration
+DL_MODEL_DIR = "posture_model_tf218_compatible/content"
+DL_WEIGHTS_PATH = f"{DL_MODEL_DIR}/best_posture_model.weights.h5"
+DL_METADATA_PATH = f"{DL_MODEL_DIR}/posture_model_metadata.json"
+USE_DL_MODEL = False  # Will be set to True if model loads successfully
+MODEL_LOADING = False  # Flag to indicate model is being loaded
+
+# ==================== Pydantic Models ====================
 
 class Status(str, Enum):
     SUCCESS = "success"
@@ -46,42 +61,148 @@ class Role(str, Enum):
 
 
 class Message(BaseModel):
-    """Message format as specified in Format Guide"""
     role: Role
     content: str
 
 
 class AgentRequest(BaseModel):
-    """EXACT format from Format Guide - DO NOT MODIFY"""
     messages: List[Message]
 
 
 class AgentResponse(BaseModel):
-    """EXACT format from Format Guide - DO NOT MODIFY"""
     agent_name: str
     status: Status
     data: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
 
 
-# ==================== MediaPipe Initialization ====================
+# ==================== Global Variables ====================
 
+posture_classifier = None
+model_metadata = None
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
-pose_detector = mp_pose.Pose(
-    static_image_mode=True,
-    model_complexity=1,
-    enable_segmentation=False,
-    min_detection_confidence=0.5
-)
+pose_detector = None  # Will be initialized in startup
 
 # ==================== FastAPI App ====================
 
 app = FastAPI(
     title="Ergonomic Posture Agent",
     version=AGENT_VERSION,
-    description="AI Worker Agent for ergonomic posture detection and analysis"
+    description="AI Worker Agent with custom-trained ML model for posture detection"
 )
+
+# Add CORS middleware to prevent blocking
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ==================== Load Deep Learning Model (Background) ====================
+
+def load_dl_model_background():
+    """Load the trained deep learning model in background thread - NON-BLOCKING"""
+    global posture_classifier, model_metadata, USE_DL_MODEL, MODEL_LOADING
+
+    MODEL_LOADING = True
+
+    try:
+        import os
+
+        if not TF_AVAILABLE:
+            logger.warning("TensorFlow not available.")
+            MODEL_LOADING = False
+            return False
+
+        # Check if weights exist
+        if not os.path.exists(DL_WEIGHTS_PATH):
+            logger.warning(f"Weights file not found: {DL_WEIGHTS_PATH}")
+            logger.info("Using MediaPipe only mode.")
+            MODEL_LOADING = False
+            return False
+
+        logger.info("🔄 Loading trained deep learning model in background...")
+        logger.info("   Method: Python builder + weights (TF 2.18 compatible)")
+
+        # Build model architecture directly in Python (no JSON loading)
+        logger.info("   Building model architecture...")
+
+        # Create MobileNetV2 base - THIS MAY DOWNLOAD WEIGHTS (slow first time)
+        base_model = tf.keras.applications.MobileNetV2(
+            input_shape=(224, 224, 3),
+            include_top=False,
+            weights='imagenet'  # Download ImageNet weights for base model
+        )
+        base_model.trainable = False
+
+        # Build Sequential model
+        posture_classifier = tf.keras.Sequential([
+            tf.keras.layers.InputLayer(shape=(224, 224, 3)),
+            base_model,
+            tf.keras.layers.GlobalAveragePooling2D(),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dropout(0.5),
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(3, activation='softmax')
+        ], name='posture_classifier')
+
+        # Build the model
+        posture_classifier.build((None, 224, 224, 3))
+        logger.info("   ✅ Architecture built")
+
+        # Load trained weights
+        logger.info(f"   Loading weights from: {DL_WEIGHTS_PATH}")
+        posture_classifier.load_weights(DL_WEIGHTS_PATH)
+        logger.info("   ✅ Weights loaded")
+
+        # Compile the model
+        posture_classifier.compile(
+            optimizer='adam',
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        logger.info("   ✅ Model compiled")
+
+        # Load metadata
+        if os.path.exists(DL_METADATA_PATH):
+            with open(DL_METADATA_PATH, 'r') as f:
+                model_metadata = json.load(f)
+            logger.info(f"   ✅ Metadata loaded: Classes = {model_metadata.get('classes', [])}")
+        else:
+            # Default metadata
+            model_metadata = {
+                'classes': ['bad', 'good', 'old'],
+                'img_size': [224, 224],
+                'num_classes': 3
+            }
+            logger.warning("   ⚠️ Metadata file not found. Using defaults.")
+
+        # Warm up model with dummy prediction (in background)
+        logger.info("   Warming up model...")
+        test_input = np.zeros((1, 224, 224, 3), dtype=np.float32)
+        _ = posture_classifier.predict(test_input, verbose=0)
+        logger.info(f"   ✅ Model warmed up!")
+
+        USE_DL_MODEL = True
+        MODEL_LOADING = False
+        logger.info("✅ Deep learning model loaded successfully!")
+        logger.info(f"   Classes: {model_metadata.get('classes', [])}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to load DL model: {str(e)}")
+        logger.info("Falling back to MediaPipe-only mode.")
+        import traceback
+        logger.error(traceback.format_exc())
+        MODEL_LOADING = False
+        USE_DL_MODEL = False
+        return False
 
 
 # ==================== Helper Functions ====================
@@ -118,8 +239,79 @@ def calculate_angle(point1: tuple, point2: tuple, point3: tuple) -> float:
         return 0.0
 
 
-def analyze_posture(landmarks) -> Dict[str, Any]:
-    """Analyze posture from MediaPipe pose landmarks."""
+def classify_with_dl_model(image: np.ndarray) -> Dict[str, Any]:
+    """Classify posture using trained deep learning model"""
+    if not USE_DL_MODEL or posture_classifier is None:
+        return None
+
+    try:
+        # Get image size from metadata
+        img_size = tuple(model_metadata['img_size'])
+        classes = model_metadata['classes']
+
+        # Preprocess image
+        img_resized = cv2.resize(image, img_size)
+        img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB)
+        img_normalized = img_rgb.astype(np.float32) / 255.0
+        img_batch = np.expand_dims(img_normalized, axis=0)
+
+        # Predict
+        predictions = posture_classifier.predict(img_batch, verbose=0)
+        class_idx = np.argmax(predictions[0])
+        confidence = float(predictions[0][class_idx])
+        predicted_class = classes[class_idx]
+
+        # Get all class probabilities
+        all_scores = {classes[i]: float(predictions[0][i]) for i in range(len(classes))}
+
+        logger.info(f"DL Classification: {predicted_class} ({confidence:.2%} confidence)")
+
+        return {
+            'predicted_class': predicted_class,
+            'confidence': confidence,
+            'all_probabilities': all_scores,
+            'method': 'deep_learning'
+        }
+
+    except Exception as e:
+        logger.error(f"Error in DL classification: {str(e)}")
+        return None
+
+
+def map_dl_class_to_posture_status(dl_class: str) -> str:
+    """Map DL classification to posture status"""
+    mapping = {
+        'good': 'upright',
+        'bad': 'slouching',
+        'old': 'slouching'  # Treat 'old' as poor posture
+    }
+    return mapping.get(dl_class.lower(), 'unknown')
+
+
+def get_posture_score_from_dl(dl_result: Dict) -> int:
+    """Convert DL confidence to posture score"""
+    if not dl_result:
+        return None
+
+    predicted_class = dl_result['predicted_class']
+    confidence = dl_result['confidence']
+
+    # Score mapping based on class and confidence
+    if predicted_class == 'good':
+        base_score = 90
+        score = base_score + int(confidence * 10)
+    elif predicted_class == 'bad':
+        base_score = 50
+        score = base_score - int(confidence * 30)
+    else:  # old or other
+        base_score = 60
+        score = base_score - int(confidence * 20)
+
+    return max(0, min(100, score))
+
+
+def analyze_posture_mediapipe(landmarks) -> Dict[str, Any]:
+    """Analyze posture from MediaPipe pose landmarks"""
     try:
         # Extract key landmarks
         left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
@@ -217,35 +409,107 @@ def analyze_posture(landmarks) -> Dict[str, Any]:
 
         posture_score = max(0, min(100, posture_score))
 
-        # Generate feedback
-        if posture_score >= 90:
-            feedback = "Excellent posture! Your spine is well-aligned and your head is properly positioned."
-        elif posture_score >= 75:
-            feedback = f"Good posture with minor issues: {', '.join(issues)}. {get_correction_advice(issues)}"
-        elif posture_score >= 60:
-            feedback = f"Fair posture. Issues detected: {', '.join(issues)}. {get_correction_advice(issues)}"
-        else:
-            feedback = f"Poor posture: {', '.join(issues)}. {get_correction_advice(issues)}"
-
-        logger.info(f"Posture Score: {posture_score}, Head Forward: {head_forward_distance:.4f}, Spine Angle: {spine_angle:.2f}")
-
         return {
             "posture_score": round(posture_score),
             "posture_status": posture_status,
-            "feedback": feedback,
-            "detected_pose": posture_status,
+            "issues": issues,
             "metrics": {
                 "spine_angle": round(spine_angle, 2),
                 "shoulder_slope": round(shoulder_slope, 4),
                 "head_forward_distance": round(head_forward_distance, 4),
-                "head_shoulder_vertical": round(head_shoulder_vertical, 4),
-                "issues": issues
-            }
+                "head_shoulder_vertical": round(head_shoulder_vertical, 4)
+            },
+            "method": "mediapipe"
         }
 
     except Exception as e:
-        logger.error(f"Error analyzing posture: {str(e)}")
-        raise ValueError(f"Posture analysis failed: {str(e)}")
+        logger.error(f"Error in MediaPipe analysis: {str(e)}")
+        raise ValueError(f"MediaPipe analysis failed: {str(e)}")
+
+
+def combine_analysis_results(mediapipe_result: Dict, dl_result: Optional[Dict]) -> Dict[str, Any]:
+    """Combine MediaPipe and deep learning results for final assessment"""
+
+    # If no DL result, use MediaPipe only
+    if not dl_result:
+        feedback = generate_feedback(
+            mediapipe_result['posture_score'],
+            mediapipe_result['issues']
+        )
+        return {
+            'posture_score': mediapipe_result['posture_score'],
+            'posture_status': mediapipe_result['posture_status'],
+            'feedback': feedback,
+            'detected_pose': mediapipe_result['posture_status'],
+            'analysis_method': 'mediapipe_only',
+            'mediapipe_analysis': mediapipe_result
+        }
+
+    # Combine both methods
+    mp_score = mediapipe_result['posture_score']
+    mp_status = mediapipe_result['posture_status']
+
+    dl_score = get_posture_score_from_dl(dl_result)
+    dl_status = map_dl_class_to_posture_status(dl_result['predicted_class'])
+
+    # Weighted combination (70% DL, 30% MediaPipe for trained model reliability)
+    combined_score = int(0.7 * dl_score + 0.3 * mp_score)
+
+    # Determine final status based on both methods
+    if dl_status == 'slouching' or mp_status == 'slouching':
+        final_status = 'slouching'
+    elif 'leaning' in mp_status:
+        final_status = mp_status
+    else:
+        final_status = 'upright'
+
+    # Generate comprehensive feedback
+    feedback_parts = []
+
+    # DL classification info
+    dl_class = dl_result['predicted_class']
+    dl_conf = dl_result['confidence']
+    feedback_parts.append(
+        f"AI Classification: {dl_class.upper()} posture detected with {dl_conf:.1%} confidence."
+    )
+
+    # MediaPipe detailed analysis
+    if mediapipe_result['issues']:
+        feedback_parts.append(
+            f"Specific issues detected: {', '.join(mediapipe_result['issues'])}."
+        )
+        feedback_parts.append(get_correction_advice(mediapipe_result['issues']))
+    else:
+        feedback_parts.append("No significant postural issues detected. Great job!")
+
+    combined_feedback = " ".join(feedback_parts)
+
+    return {
+        'posture_score': combined_score,
+        'posture_status': final_status,
+        'feedback': combined_feedback,
+        'detected_pose': final_status,
+        'analysis_method': 'hybrid',
+        'mediapipe_analysis': mediapipe_result,
+        'dl_classification': dl_result,
+        'scores': {
+            'combined': combined_score,
+            'mediapipe': mp_score,
+            'deep_learning': dl_score
+        }
+    }
+
+
+def generate_feedback(score: int, issues: List[str]) -> str:
+    """Generate feedback based on score and issues"""
+    if score >= 90:
+        return "Excellent posture! Your spine is well-aligned and your head is properly positioned."
+    elif score >= 75:
+        return f"Good posture with minor issues: {', '.join(issues)}. {get_correction_advice(issues)}"
+    elif score >= 60:
+        return f"Fair posture. Issues detected: {', '.join(issues)}. {get_correction_advice(issues)}"
+    else:
+        return f"Poor posture: {', '.join(issues)}. {get_correction_advice(issues)}"
 
 
 def get_correction_advice(issues: List[str]) -> str:
@@ -282,7 +546,6 @@ def process_image(image_data: bytes) -> np.ndarray:
 
 def extract_image_from_request(request: AgentRequest, file: Optional[UploadFile]) -> np.ndarray:
     """Extract image from either uploaded file or base64 content in messages."""
-    # Try uploaded file first
     if file is not None:
         try:
             image_data = file.file.read()
@@ -291,7 +554,6 @@ def extract_image_from_request(request: AgentRequest, file: Optional[UploadFile]
             logger.error(f"Error reading uploaded file: {str(e)}")
             raise ValueError(f"Failed to read uploaded file: {str(e)}")
 
-    # Try to extract base64 from messages
     for message in request.messages:
         content = message.content.strip()
         if content.startswith('data:image') or len(content) > 100:
@@ -304,45 +566,40 @@ def extract_image_from_request(request: AgentRequest, file: Optional[UploadFile]
     raise ValueError("No image found in request. Please provide an image file or base64 data.")
 
 
-# ==================== API Endpoints (Format Guide Compliant) ====================
+# ==================== API Endpoints ====================
 
 @app.get("/health")
 async def health_check():
-    """
-    Health check endpoint - REQUIRED by Format Guide
-    Must return: status, agent_name, ready
-    """
+    """Health check endpoint - Returns immediately without waiting for model"""
     return {
         "status": "ok",
         "agent_name": AGENT_NAME,
-        "ready": True
+        "ready": True,
+        "version": AGENT_VERSION,
+        "ml_model_loaded": USE_DL_MODEL,
+        "ml_model_loading": MODEL_LOADING,
+        "analysis_mode": "hybrid" if USE_DL_MODEL else ("loading" if MODEL_LOADING else "mediapipe_only")
     }
 
 
 @app.post("/ergonomic-posture-agent", response_model=AgentResponse)
 async def posture_agent_endpoint(
-    request: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None)
+        request: Optional[str] = Form(None),
+        file: Optional[UploadFile] = File(None)
 ):
-    """
-    Main endpoint - MUST match format: POST /ergonomic-posture-agent
-    MUST accept AgentRequest format
-    MUST return AgentResponse format
-    """
+    """Main posture analysis endpoint with ML integration - ASYNC"""
     try:
-        # Parse request JSON
+        # Parse request
         if request is None:
             agent_request = AgentRequest(messages=[
                 Message(role=Role.USER, content="Analyze my posture")
             ])
         else:
             try:
-                import json
                 request_dict = json.loads(request)
                 agent_request = AgentRequest(**request_dict)
             except Exception as e:
                 logger.error(f"Error parsing request JSON: {str(e)}")
-                # FIXED: Return error in correct format
                 return AgentResponse(
                     agent_name=AGENT_NAME,
                     status=Status.ERROR,
@@ -356,7 +613,6 @@ async def posture_agent_endpoint(
         try:
             image = extract_image_from_request(agent_request, file)
         except ValueError as e:
-            # FIXED: Return error in correct format
             return AgentResponse(
                 agent_name=AGENT_NAME,
                 status=Status.ERROR,
@@ -367,13 +623,12 @@ async def posture_agent_endpoint(
         # Convert to RGB for MediaPipe
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Detect pose
+        # Run MediaPipe pose detection
         logger.info("Running MediaPipe pose detection...")
         results = pose_detector.process(image_rgb)
 
         if not results.pose_landmarks:
             logger.warning("No pose detected")
-            # FIXED: Return error in correct format
             return AgentResponse(
                 agent_name=AGENT_NAME,
                 status=Status.ERROR,
@@ -381,26 +636,37 @@ async def posture_agent_endpoint(
                 error_message="No person detected in the image. Please ensure a clear view of upper body."
             )
 
-        # Analyze posture
-        logger.info("Analyzing posture...")
-        analysis_results = analyze_posture(results.pose_landmarks.landmark)
+        # Analyze with MediaPipe
+        logger.info("Analyzing posture with MediaPipe...")
+        mediapipe_result = analyze_posture_mediapipe(results.pose_landmarks.landmark)
+
+        # Classify with deep learning model if available
+        dl_result = None
+        if USE_DL_MODEL:
+            logger.info("Classifying with deep learning model...")
+            dl_result = classify_with_dl_model(image)
+        elif MODEL_LOADING:
+            logger.info("Model still loading, using MediaPipe only for now...")
+
+        # Combine results
+        logger.info("Combining analysis results...")
+        analysis_results = combine_analysis_results(mediapipe_result, dl_result)
 
         logger.info(f"Analysis complete. Score: {analysis_results['posture_score']}")
 
-        # FIXED: Return success in correct format with "message" key
+        # Return response
         return AgentResponse(
             agent_name=AGENT_NAME,
             status=Status.SUCCESS,
             data={
-                "message": analysis_results['feedback'],  # Primary message
-                "posture_analysis": analysis_results  # Full analysis data
+                "message": analysis_results['feedback'],
+                "posture_analysis": analysis_results
             },
             error_message=None
         )
 
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        # FIXED: Return error in correct format
         return AgentResponse(
             agent_name=AGENT_NAME,
             status=Status.ERROR,
@@ -411,16 +677,19 @@ async def posture_agent_endpoint(
 
 @app.get("/")
 async def root():
-    """Root endpoint with agent information."""
+    """Root endpoint with agent information - ASYNC"""
     return {
         "agent": AGENT_NAME,
         "version": AGENT_VERSION,
         "status": "operational",
+        "ml_model_loaded": USE_DL_MODEL,
+        "ml_model_loading": MODEL_LOADING,
+        "analysis_mode": "hybrid" if USE_DL_MODEL else ("loading" if MODEL_LOADING else "mediapipe_only"),
         "endpoints": {
             "main": f"/{AGENT_NAME}",
             "health": "/health"
         },
-        "description": "AI Worker Agent for ergonomic posture detection and analysis"
+        "description": "AI Worker Agent with custom-trained ML model for posture detection"
     }
 
 
@@ -428,25 +697,55 @@ async def root():
 
 @app.on_event("startup")
 async def startup_event():
+    """Startup event - Initialize resources NON-BLOCKING"""
+    global pose_detector
+
     logger.info(f"{AGENT_NAME} v{AGENT_VERSION} starting up...")
-    logger.info("MediaPipe Pose model loaded successfully")
-    logger.info("Server ready to accept requests")
+
+    # Initialize MediaPipe Pose detector (fast, non-blocking)
+    pose_detector = mp_pose.Pose(
+        static_image_mode=True,
+        model_complexity=1,
+        enable_segmentation=False,
+        min_detection_confidence=0.5
+    )
+    logger.info("✅ MediaPipe initialized")
+
+    # Load DL model in background thread (non-blocking)
+    logger.info("🔄 Starting DL model loading in background...")
+    thread = threading.Thread(target=load_dl_model_background, daemon=True)
+    thread.start()
+
+    logger.info("✅ Server ready to accept requests (model loading in background)")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    """Shutdown event - Cleanup resources"""
     logger.info(f"{AGENT_NAME} shutting down...")
-    pose_detector.close()
+    if pose_detector:
+        try:
+            pose_detector.close()
+        except:
+            pass
 
 
 # ==================== Main Entry Point ====================
 
 if __name__ == "__main__":
     import uvicorn
+
+    logger.info("="*60)
+    logger.info("🚀 Starting Ergonomic Posture Agent")
+    logger.info("="*60)
+    logger.info("Server will be ready in ~2 seconds")
+    logger.info("ML model will load in background (10-30 seconds)")
+    logger.info("You can use the agent immediately with MediaPipe-only mode")
+    logger.info("="*60)
+
     uvicorn.run(
-        "main:app",
+        app,
         host="0.0.0.0",
-        port=8001,
-        reload=True,
+        port=8002,
         log_level="info"
     )
