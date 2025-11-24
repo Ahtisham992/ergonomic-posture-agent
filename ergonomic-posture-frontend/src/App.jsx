@@ -239,24 +239,24 @@ const PostureAnalyzer = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '10px 15px' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ 
           background: 'white', 
           borderRadius: '15px', 
-          padding: '30px', 
-          marginBottom: '20px',
+          padding: '20px 15px', 
+          marginBottom: '15px',
           textAlign: 'center',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
         }}>
-          <h1 style={{ margin: '0 0 10px 0', color: '#667eea', fontSize: '2.5em' }}>
+          <h1 style={{ margin: '0 0 10px 0', color: '#667eea', fontSize: 'clamp(1.5em, 5vw, 2.5em)' }}>
             🪑 Ergonomic Posture Analyzer
           </h1>
-          <p style={{ color: '#666', fontSize: '1.1em', margin: '10px 0' }}>
+          <p style={{ color: '#666', fontSize: 'clamp(0.9em, 2.5vw, 1.1em)', margin: '10px 0' }}>
             AI-Powered Posture Detection Using MediaPipe & Deep Learning
           </p>
-          <p style={{ color: '#999', fontSize: '0.9em' }}>
+          <p style={{ color: '#999', fontSize: 'clamp(0.8em, 2vw, 0.9em)' }}>
             Upload an image or use your webcam to analyze your sitting posture
           </p>
         </div>
@@ -265,20 +265,22 @@ const PostureAnalyzer = () => {
         <div style={{ 
           background: 'white', 
           borderRadius: '15px', 
-          padding: '20px', 
-          marginBottom: '20px',
+          padding: '15px', 
+          marginBottom: '15px',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>📌 Agent Connection Status</h3>
+          <div style={{ display: 'flex', flexDirection: window.innerWidth < 768 ? 'column' : 'row', gap: '15px', justifyContent: 'space-between', alignItems: window.innerWidth < 768 ? 'stretch' : 'center' }}>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#333', fontSize: 'clamp(1em, 3vw, 1.2em)' }}>📌 Agent Connection Status</h3>
               <pre style={{ 
                 background: '#f5f5f5', 
                 padding: '10px', 
                 borderRadius: '5px',
                 margin: 0,
-                fontSize: '0.9em',
-                whiteSpace: 'pre-wrap'
+                fontSize: 'clamp(0.75em, 2vw, 0.9em)',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                overflowX: 'auto'
               }}>
                 {agentStatus.message}
               </pre>
@@ -286,7 +288,7 @@ const PostureAnalyzer = () => {
             <button
               onClick={checkAgentStatus}
               style={{
-                padding: '10px 20px',
+                padding: '12px 20px',
                 background: '#667eea',
                 color: 'white',
                 border: 'none',
@@ -294,8 +296,11 @@ const PostureAnalyzer = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '8px',
-                fontSize: '1em'
+                fontSize: 'clamp(0.9em, 2.5vw, 1em)',
+                whiteSpace: 'nowrap',
+                alignSelf: window.innerWidth < 768 ? 'stretch' : 'center'
               }}
             >
               <RefreshCw size={18} /> Check Status
@@ -370,16 +375,16 @@ const PostureAnalyzer = () => {
             </button>
           </div>
 
-          <div style={{ padding: '30px' }}>
+          <div style={{ padding: '20px 15px' }}>
             {/* Upload Tab */}
             {activeTab === 'upload' && (
               <div>
-                <h3 style={{ color: '#333', marginBottom: '15px' }}>📤 Upload a Photo</h3>
-                <p style={{ color: '#666', marginBottom: '20px' }}>
+                <h3 style={{ color: '#333', marginBottom: '15px', fontSize: 'clamp(1.1em, 3vw, 1.3em)' }}>📤 Upload a Photo</h3>
+                <p style={{ color: '#666', marginBottom: '20px', fontSize: 'clamp(0.9em, 2.5vw, 1em)' }}>
                   Upload an image showing your upper body and sitting posture. Make sure your shoulders, head, and upper torso are clearly visible from the FRONT.
                 </p>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : '1fr 1fr', gap: '20px' }}>
                   <div>
                     <input
                       ref={fileInputRef}
@@ -393,11 +398,11 @@ const PostureAnalyzer = () => {
                       style={{
                         border: '2px dashed #667eea',
                         borderRadius: '10px',
-                        padding: '40px',
+                        padding: '30px 20px',
                         textAlign: 'center',
                         cursor: 'pointer',
                         background: uploadedImage ? '#f0f0f0' : 'white',
-                        minHeight: '400px',
+                        minHeight: window.innerWidth < 768 ? '250px' : '400px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
@@ -405,11 +410,11 @@ const PostureAnalyzer = () => {
                       }}
                     >
                       {uploadedImage ? (
-                        <img src={uploadedImage} alt="Uploaded" style={{ maxWidth: '100%', maxHeight: '350px', borderRadius: '8px' }} />
+                        <img src={uploadedImage} alt="Uploaded" style={{ maxWidth: '100%', maxHeight: window.innerWidth < 768 ? '200px' : '350px', borderRadius: '8px' }} />
                       ) : (
                         <>
-                          <Upload size={48} color="#667eea" />
-                          <p style={{ marginTop: '20px', color: '#666' }}>Click to upload image</p>
+                          <Upload size={window.innerWidth < 768 ? 36 : 48} color="#667eea" />
+                          <p style={{ marginTop: '20px', color: '#666', fontSize: 'clamp(0.9em, 2.5vw, 1em)' }}>Click to upload image</p>
                         </>
                       )}
                     </div>
@@ -425,7 +430,7 @@ const PostureAnalyzer = () => {
                         border: 'none',
                         borderRadius: '8px',
                         cursor: uploadedImage && !loading ? 'pointer' : 'not-allowed',
-                        fontSize: '1.1em',
+                        fontSize: 'clamp(1em, 2.5vw, 1.1em)',
                         fontWeight: 'bold'
                       }}
                     >
@@ -444,12 +449,12 @@ const PostureAnalyzer = () => {
             {/* Webcam Tab */}
             {activeTab === 'webcam' && (
               <div>
-                <h3 style={{ color: '#333', marginBottom: '15px' }}>📷 Capture from Webcam</h3>
-                <p style={{ color: '#666', marginBottom: '20px' }}>
+                <h3 style={{ color: '#333', marginBottom: '15px', fontSize: 'clamp(1.1em, 3vw, 1.3em)' }}>📷 Capture from Webcam</h3>
+                <p style={{ color: '#666', marginBottom: '20px', fontSize: 'clamp(0.9em, 2.5vw, 1em)' }}>
                   Position yourself 2-3 feet from camera. Face the camera directly. Ensure upper body is visible.
                 </p>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : '1fr 1fr', gap: '20px' }}>
                   <div>
                     {!webcamImage && (
                       <div style={{
@@ -457,7 +462,7 @@ const PostureAnalyzer = () => {
                         borderRadius: '10px',
                         overflow: 'hidden',
                         background: '#000',
-                        minHeight: '480px',
+                        minHeight: window.innerWidth < 768 ? '300px' : '480px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -473,7 +478,7 @@ const PostureAnalyzer = () => {
                               style={{ 
                                 width: '100%', 
                                 height: 'auto',
-                                maxHeight: '480px',
+                                maxHeight: window.innerWidth < 768 ? '300px' : '480px',
                                 objectFit: 'cover'
                               }}
                             />
@@ -485,16 +490,16 @@ const PostureAnalyzer = () => {
                               color: 'white',
                               padding: '5px 10px',
                               borderRadius: '5px',
-                              fontSize: '0.9em'
+                              fontSize: 'clamp(0.8em, 2vw, 0.9em)'
                             }}>
                               ● LIVE
                             </div>
                           </>
                         ) : (
                           <div style={{ textAlign: 'center', color: 'white', padding: '20px' }}>
-                            <Camera size={48} />
-                            <p style={{ marginTop: '20px' }}>Click "Open Webcam" to start</p>
-                            <p style={{ fontSize: '0.9em', opacity: 0.7 }}>Make sure to allow camera permissions</p>
+                            <Camera size={window.innerWidth < 768 ? 36 : 48} />
+                            <p style={{ marginTop: '20px', fontSize: 'clamp(0.9em, 2.5vw, 1em)' }}>Click "Open Webcam" to start</p>
+                            <p style={{ fontSize: 'clamp(0.8em, 2vw, 0.9em)', opacity: 0.7 }}>Make sure to allow camera permissions</p>
                           </div>
                         )}
                       </div>
@@ -526,19 +531,20 @@ const PostureAnalyzer = () => {
                     )}
                     <canvas ref={canvasRef} style={{ display: 'none' }} />
                     
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '15px', flexWrap: 'wrap' }}>
                       {!isCameraActive && !webcamImage && (
                         <button
                           onClick={startWebcam}
                           style={{
                             flex: 1,
+                            minWidth: '150px',
                             padding: '15px',
                             background: '#28a745',
                             color: 'white',
                             border: 'none',
                             borderRadius: '8px',
                             cursor: 'pointer',
-                            fontSize: '1.1em',
+                            fontSize: 'clamp(1em, 2.5vw, 1.1em)',
                             fontWeight: 'bold'
                           }}
                         >
@@ -551,13 +557,14 @@ const PostureAnalyzer = () => {
                             onClick={captureImage}
                             style={{
                               flex: 1,
+                              minWidth: '120px',
                               padding: '15px',
                               background: '#667eea',
                               color: 'white',
                               border: 'none',
                               borderRadius: '8px',
                               cursor: 'pointer',
-                              fontSize: '1.1em',
+                              fontSize: 'clamp(1em, 2.5vw, 1.1em)',
                               fontWeight: 'bold'
                             }}
                           >
@@ -572,7 +579,7 @@ const PostureAnalyzer = () => {
                               border: 'none',
                               borderRadius: '8px',
                               cursor: 'pointer',
-                              fontSize: '1.1em',
+                              fontSize: 'clamp(1em, 2.5vw, 1.1em)',
                               fontWeight: 'bold'
                             }}
                           >
@@ -586,13 +593,14 @@ const PostureAnalyzer = () => {
                           disabled={loading}
                           style={{
                             flex: 1,
+                            minWidth: '150px',
                             padding: '15px',
                             background: loading ? '#ccc' : '#667eea',
                             color: 'white',
                             border: 'none',
                             borderRadius: '8px',
                             cursor: loading ? 'not-allowed' : 'pointer',
-                            fontSize: '1.1em',
+                            fontSize: 'clamp(1em, 2.5vw, 1.1em)',
                             fontWeight: 'bold'
                           }}
                         >
@@ -612,12 +620,12 @@ const PostureAnalyzer = () => {
 
             {/* Guide Tab */}
             {activeTab === 'guide' && (
-              <div style={{ color: '#333' }}>
-                <h2>🎯 How to Get Accurate Results</h2>
+              <div style={{ color: '#333', fontSize: 'clamp(0.9em, 2.5vw, 1em)' }}>
+                <h2 style={{ fontSize: 'clamp(1.3em, 4vw, 1.8em)' }}>🎯 How to Get Accurate Results</h2>
                 
-                <h3 style={{ marginTop: '30px', color: '#667eea' }}>✅ CORRECT Setup (Frontal View)</h3>
-                <div style={{ background: '#f5f5f5', padding: '20px', borderRadius: '10px', marginTop: '10px' }}>
-                  <pre style={{ margin: 0 }}>{`
+                <h3 style={{ marginTop: '30px', color: '#667eea', fontSize: 'clamp(1.1em, 3vw, 1.3em)' }}>✅ CORRECT Setup (Frontal View)</h3>
+                <div style={{ background: '#f5f5f5', padding: '15px', borderRadius: '10px', marginTop: '10px', overflowX: 'auto' }}>
+                  <pre style={{ margin: 0, fontSize: 'clamp(0.7em, 2vw, 0.9em)' }}>{`
         📷 Camera
          ↓
        👤 YOU
@@ -627,8 +635,8 @@ const PostureAnalyzer = () => {
                   `}</pre>
                 </div>
                 
-                <h3 style={{ marginTop: '30px', color: '#667eea' }}>Requirements:</h3>
-                <ul style={{ lineHeight: '2' }}>
+                <h3 style={{ marginTop: '30px', color: '#667eea', fontSize: 'clamp(1.1em, 3vw, 1.3em)' }}>Requirements:</h3>
+                <ul style={{ lineHeight: '2', paddingLeft: '20px' }}>
                   <li>✅ Face camera directly (frontal view)</li>
                   <li>✅ 2-3 feet distance from camera</li>
                   <li>✅ Upper body visible (shoulders + head + torso)</li>
@@ -636,24 +644,24 @@ const PostureAnalyzer = () => {
                   <li>✅ Camera at eye level</li>
                 </ul>
                 
-                <h3 style={{ marginTop: '30px', color: '#667eea' }}>📊 Understanding Scores</h3>
-                <ul style={{ lineHeight: '2' }}>
+                <h3 style={{ marginTop: '30px', color: '#667eea', fontSize: 'clamp(1.1em, 3vw, 1.3em)' }}>📊 Understanding Scores</h3>
+                <ul style={{ lineHeight: '2', paddingLeft: '20px' }}>
                   <li><strong>85-100 🟢 Excellent</strong> - Keep it up!</li>
                   <li><strong>70-84 🟡 Good</strong> - Minor adjustments needed</li>
                   <li><strong>50-69 🟠 Fair</strong> - Significant improvement needed</li>
                   <li><strong>0-49 🔴 Poor</strong> - Immediate correction required</li>
                 </ul>
 
-                <h3 style={{ marginTop: '30px', color: '#667eea' }}>🤖 AI Analysis Modes</h3>
+                <h3 style={{ marginTop: '30px', color: '#667eea', fontSize: 'clamp(1.1em, 3vw, 1.3em)' }}>🤖 AI Analysis Modes</h3>
                 <p><strong>Hybrid Mode</strong> (Best):</p>
-                <ul>
+                <ul style={{ paddingLeft: '20px' }}>
                   <li>Deep Learning Classification (70% weight)</li>
                   <li>MediaPipe Geometric Analysis (30% weight)</li>
                   <li>Confidence scores and probabilities</li>
                 </ul>
                 
                 <p style={{ marginTop: '15px' }}><strong>MediaPipe-Only Mode</strong> (Fallback):</p>
-                <ul>
+                <ul style={{ paddingLeft: '20px' }}>
                   <li>Rule-based geometric analysis</li>
                   <li>Still accurate for most cases</li>
                 </ul>
@@ -666,16 +674,16 @@ const PostureAnalyzer = () => {
         <div style={{ 
           background: 'white', 
           borderRadius: '15px', 
-          padding: '20px',
-          marginTop: '20px',
+          padding: '15px',
+          marginTop: '15px',
           textAlign: 'center',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
         }}>
-          <p style={{ color: '#666', margin: '10px 0' }}>
+          <p style={{ color: '#666', margin: '10px 0', fontSize: 'clamp(0.85em, 2vw, 1em)', lineHeight: '1.6' }}>
             💡 <strong>Tip:</strong> Maintain good posture: Keep your back straight, shoulders relaxed, 
             and head aligned with your spine. Take breaks every 30 minutes!
           </p>
-          <p style={{ color: '#999', fontSize: '0.9em', marginTop: '10px' }}>
+          <p style={{ color: '#999', fontSize: 'clamp(0.75em, 1.8vw, 0.9em)', marginTop: '10px' }}>
             Powered by MediaPipe & Deep Learning | Version 2.1.0
           </p>
         </div>
@@ -695,56 +703,57 @@ const ResultDisplay = ({ result }) => {
       <div style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         borderRadius: '15px',
-        padding: '30px',
+        padding: '20px 15px',
         textAlign: 'center',
         color: 'white',
         marginBottom: '20px'
       }}>
-        <div style={{ fontSize: '3em', margin: '0' }}>{scoreInfo.emoji}</div>
-        <h2 style={{ margin: '10px 0', fontSize: '2em' }}>Score: {result.score}/100</h2>
+        <div style={{ fontSize: 'clamp(2em, 8vw, 3em)', margin: '0' }}>{scoreInfo.emoji}</div>
+        <h2 style={{ margin: '10px 0', fontSize: 'clamp(1.3em, 5vw, 2em)' }}>Score: {result.score}/100</h2>
         <div style={{
           background: 'white',
           color: scoreInfo.bg,
           display: 'inline-block',
-          padding: '10px 30px',
+          padding: '8px 25px',
           borderRadius: '25px',
           margin: '10px 0',
           fontWeight: 'bold',
-          fontSize: '1.2em'
+          fontSize: 'clamp(1em, 3vw, 1.2em)'
         }}>
           {scoreInfo.label}
         </div>
-        <p style={{ margin: '15px 0', fontSize: '1.1em' }}>Status: <strong>{result.status.toUpperCase()}</strong></p>
+        <p style={{ margin: '15px 0', fontSize: 'clamp(0.95em, 2.5vw, 1.1em)' }}>Status: <strong>{result.status.toUpperCase()}</strong></p>
       </div>
 
       <div style={{ 
         background: '#f8f9fa', 
         borderRadius: '10px', 
-        padding: '20px',
+        padding: '15px',
         maxHeight: '600px',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        fontSize: 'clamp(0.85em, 2vw, 1em)'
       }}>
         <div style={{ 
           background: 'white', 
-          padding: '15px', 
+          padding: '12px', 
           borderRadius: '8px',
           marginBottom: '15px',
           border: '2px solid #667eea'
         }}>
-          <h3 style={{ color: '#667eea', marginTop: 0, marginBottom: '10px' }}>🎯 POSTURE ANALYSIS RESULTS</h3>
+          <h3 style={{ color: '#667eea', marginTop: 0, marginBottom: '10px', fontSize: 'clamp(1em, 3vw, 1.2em)' }}>🎯 POSTURE ANALYSIS RESULTS</h3>
           <div style={{ color: '#333', fontSize: '0.95em', lineHeight: '1.8' }}>
             <p><strong>📊 POSTURE SCORE:</strong> {result.score}/100</p>
             <p><strong>🔍 STATUS:</strong> {result.status.toUpperCase()}</p>
           </div>
         </div>
 
-        <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>💬 FEEDBACK</h3>
-        <p style={{ color: '#666', lineHeight: '1.6', background: 'white', padding: '15px', borderRadius: '8px' }}>
+        <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px', fontSize: 'clamp(1em, 2.8vw, 1.15em)' }}>💬 FEEDBACK</h3>
+        <p style={{ color: '#666', lineHeight: '1.6', background: 'white', padding: '12px', borderRadius: '8px' }}>
           {result.feedback}
         </p>
 
-        <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>🔬 DETAILED METRICS</h3>
-        <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+        <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px', fontSize: 'clamp(1em, 2.8vw, 1.15em)' }}>🔬 DETAILED METRICS</h3>
+        <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
           <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
             <li><strong>Spine Angle:</strong> {result.metrics.spine_angle ? `${result.metrics.spine_angle}°` : 'N/A'}</li>
             <li><strong>Shoulder Slope:</strong> {result.metrics.shoulder_slope ? result.metrics.shoulder_slope : 'N/A'}</li>
@@ -757,8 +766,8 @@ const ResultDisplay = ({ result }) => {
 
         {result.issues && result.issues.length > 0 ? (
           <>
-            <h3 style={{ color: '#dc3545', marginTop: '20px', marginBottom: '10px' }}>⚠️ ISSUES DETECTED</h3>
-            <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+            <h3 style={{ color: '#dc3545', marginTop: '20px', marginBottom: '10px', fontSize: 'clamp(1em, 2.8vw, 1.15em)' }}>⚠️ ISSUES DETECTED</h3>
+            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
               <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
                 {result.issues.map((issue, i) => (
                   <li key={i}>{issue}</li>
@@ -769,7 +778,7 @@ const ResultDisplay = ({ result }) => {
         ) : (
           <div style={{ 
             background: '#d4edda', 
-            padding: '15px', 
+            padding: '12px', 
             borderRadius: '8px',
             marginTop: '20px',
             color: '#155724'
@@ -780,8 +789,8 @@ const ResultDisplay = ({ result }) => {
 
         {result.dlClassification && (
           <>
-            <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>🤖 AI CLASSIFICATION</h3>
-            <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+            <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px', fontSize: 'clamp(1em, 2.8vw, 1.15em)' }}>🤖 AI CLASSIFICATION</h3>
+            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
               <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
                 <li><strong>Predicted Class:</strong> {result.dlClassification.predicted_class.toUpperCase()}</li>
                 <li><strong>Confidence:</strong> {(result.dlClassification.confidence * 100).toFixed(1)}%</li>
@@ -805,8 +814,8 @@ const ResultDisplay = ({ result }) => {
 
         {result.scores && (
           <>
-            <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>📊 DETAILED SCORES</h3>
-            <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+            <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px', fontSize: 'clamp(1em, 2.8vw, 1.15em)' }}>📊 DETAILED SCORES</h3>
+            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
               <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
                 <li><strong>Combined Score:</strong> {result.scores.combined}/100</li>
                 <li><strong>Deep Learning:</strong> {result.scores.deep_learning}/100</li>
@@ -819,11 +828,11 @@ const ResultDisplay = ({ result }) => {
         {result.method && (
           <div style={{ 
             marginTop: '20px', 
-            padding: '10px 15px', 
+            padding: '10px 12px', 
             background: '#e7f3ff',
             borderRadius: '8px',
             color: '#004085',
-            fontSize: '0.9em'
+            fontSize: 'clamp(0.8em, 2vw, 0.9em)'
           }}>
             <strong>📡 Analysis Method:</strong> {result.method.toUpperCase().replace('_', ' ')}
           </div>
