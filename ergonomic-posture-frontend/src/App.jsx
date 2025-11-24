@@ -641,38 +641,114 @@ const ResultDisplay = ({ result }) => {
         background: '#f8f9fa', 
         borderRadius: '10px', 
         padding: '20px',
-        maxHeight: '500px',
+        maxHeight: '600px',
         overflowY: 'auto'
       }}>
-        <h3 style={{ color: '#333', marginTop: 0 }}>💬 Feedback</h3>
-        <p style={{ color: '#666', lineHeight: '1.6' }}>{result.feedback}</p>
+        <div style={{ 
+          background: 'white', 
+          padding: '15px', 
+          borderRadius: '8px',
+          marginBottom: '15px',
+          border: '2px solid #667eea'
+        }}>
+          <h3 style={{ color: '#667eea', marginTop: 0, marginBottom: '10px' }}>🎯 POSTURE ANALYSIS RESULTS</h3>
+          <div style={{ color: '#333', fontSize: '0.95em', lineHeight: '1.8' }}>
+            <p><strong>📊 POSTURE SCORE:</strong> {result.score}/100</p>
+            <p><strong>🔍 STATUS:</strong> {result.status.toUpperCase()}</p>
+          </div>
+        </div>
 
-        <h3 style={{ color: '#333', marginTop: '20px' }}>📊 Metrics</h3>
-        <ul style={{ color: '#666', lineHeight: '1.8' }}>
-          <li>Spine Angle: {result.metrics.spine_angle}°</li>
-          <li>Shoulder Slope: {result.metrics.shoulder_slope}</li>
-          <li>Head Forward Distance: {result.metrics.head_forward_distance}</li>
-        </ul>
+        <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>💬 FEEDBACK</h3>
+        <p style={{ color: '#666', lineHeight: '1.6', background: 'white', padding: '15px', borderRadius: '8px' }}>
+          {result.feedback}
+        </p>
+
+        <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>🔬 DETAILED METRICS</h3>
+        <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+          <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
+            <li><strong>Spine Angle:</strong> {result.metrics.spine_angle ? `${result.metrics.spine_angle}°` : 'N/A'}</li>
+            <li><strong>Shoulder Slope:</strong> {result.metrics.shoulder_slope ? result.metrics.shoulder_slope : 'N/A'}</li>
+            <li><strong>Head Forward Distance:</strong> {result.metrics.head_forward_distance ? result.metrics.head_forward_distance : 'N/A'}</li>
+            {result.metrics.head_shoulder_vertical && (
+              <li><strong>Head-Shoulder Vertical:</strong> {result.metrics.head_shoulder_vertical}</li>
+            )}
+          </ul>
+        </div>
 
         {result.issues && result.issues.length > 0 && (
           <>
-            <h3 style={{ color: '#dc3545', marginTop: '20px' }}>⚠️ Issues Detected</h3>
-            <ul style={{ color: '#666', lineHeight: '1.8' }}>
-              {result.issues.map((issue, i) => (
-                <li key={i}>{issue}</li>
-              ))}
-            </ul>
+            <h3 style={{ color: '#dc3545', marginTop: '20px', marginBottom: '10px' }}>⚠️ ISSUES DETECTED</h3>
+            <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+              <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
+                {result.issues.map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
+              </ul>
+            </div>
           </>
+        )}
+
+        {result.issues && result.issues.length === 0 && (
+          <div style={{ 
+            background: '#d4edda', 
+            padding: '15px', 
+            borderRadius: '8px',
+            marginTop: '20px',
+            color: '#155724'
+          }}>
+            <p style={{ margin: 0 }}>✅ <strong>NO MAJOR ISSUES DETECTED!</strong></p>
+          </div>
         )}
 
         {result.dlClassification && (
           <>
-            <h3 style={{ color: '#333', marginTop: '20px' }}>🤖 AI Classification</h3>
-            <ul style={{ color: '#666', lineHeight: '1.8' }}>
-              <li>Predicted Class: <strong>{result.dlClassification.predicted_class.toUpperCase()}</strong></li>
-              <li>Confidence: <strong>{(result.dlClassification.confidence * 100).toFixed(1)}%</strong></li>
-            </ul>
+            <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>🤖 AI CLASSIFICATION</h3>
+            <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+              <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
+                <li><strong>Predicted Class:</strong> {result.dlClassification.predicted_class.toUpperCase()}</li>
+                <li><strong>Confidence:</strong> {(result.dlClassification.confidence * 100).toFixed(1)}%</li>
+              </ul>
+              
+              {result.dlClassification.all_probabilities && (
+                <div style={{ marginTop: '15px' }}>
+                  <p style={{ margin: '0 0 10px 0', color: '#666', fontWeight: 'bold' }}>All Probabilities:</p>
+                  <ul style={{ color: '#666', lineHeight: '1.8', margin: 0, paddingLeft: '40px' }}>
+                    {Object.entries(result.dlClassification.all_probabilities).map(([cls, prob]) => (
+                      <li key={cls}>
+                        <strong>{cls}:</strong> {(prob * 100).toFixed(1)}%
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </>
+        )}
+
+        {result.scores && (
+          <>
+            <h3 style={{ color: '#333', marginTop: '20px', marginBottom: '10px' }}>📊 DETAILED SCORES</h3>
+            <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+              <ul style={{ color: '#666', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
+                <li><strong>Combined Score:</strong> {result.scores.combined}/100</li>
+                <li><strong>Deep Learning:</strong> {result.scores.deep_learning}/100</li>
+                <li><strong>MediaPipe:</strong> {result.scores.mediapipe}/100</li>
+              </ul>
+            </div>
+          </>
+        )}
+
+        {result.method && (
+          <div style={{ 
+            marginTop: '20px', 
+            padding: '10px 15px', 
+            background: '#e7f3ff',
+            borderRadius: '8px',
+            color: '#004085',
+            fontSize: '0.9em'
+          }}>
+            <strong>📡 Analysis Method:</strong> {result.method.toUpperCase().replace('_', ' ')}
+          </div>
         )}
       </div>
     </div>
