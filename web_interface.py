@@ -1,7 +1,6 @@
 """
 Web Interface for Ergonomic Posture Agent
-Beautiful Gradio-based UI for posture analysis
-FIXED VERSION - Works with hybrid mode and displays all metrics
+Works with Guide-Compliant version
 """
 
 import gradio as gr
@@ -11,8 +10,9 @@ import cv2
 import numpy as np
 from PIL import Image
 import io
+import base64
 
-# Configuration
+# UPDATED: Correct port and endpoint
 AGENT_URL = "http://localhost:8002/ergonomic-posture-agent"
 HEALTH_URL = "http://localhost:8002/health"
 
@@ -40,13 +40,32 @@ def check_agent_status():
                 return False, f"⚠️ Agent not ready: {agent_name}"
         return False, "⚠️ Agent responded with unexpected status"
     except requests.exceptions.ConnectionError:
-        return False, "❌ Cannot connect to agent. Please start it with:\n   uvicorn main:app --reload --port 8001"
+        return False, "❌ Cannot connect to agent. Please start it with:\n   python main.py"
     except Exception as e:
         return False, f"❌ Error: {str(e)}"
 
 
+def image_to_base64(image) -> str:
+    """Convert PIL Image or numpy array to base64 string"""
+    if isinstance(image, np.ndarray):
+        pil_image = Image.fromarray(image)
+    else:
+        pil_image = image
+    
+    # Convert to JPEG bytes
+    img_byte_arr = io.BytesIO()
+    pil_image.save(img_byte_arr, format='JPEG')
+    img_byte_arr.seek(0)
+    
+    # Encode to base64
+    img_base64 = base64.b64encode(img_byte_arr.read()).decode('utf-8')
+    
+    # Return with data URL prefix
+    return f"data:image/jpeg;base64,{img_base64}"
+
+
 def analyze_posture_image(image):
-    """Analyze posture from uploaded image"""
+    """Analyze posture from uploaded image - GUIDE COMPLIANT"""
     if image is None:
         return "❌ Please upload an image first", None, ""
 
@@ -56,33 +75,29 @@ def analyze_posture_image(image):
         return status_msg + "\n\nPlease start the agent first!", None, ""
 
     try:
-        # Convert image to bytes
-        if isinstance(image, np.ndarray):
-            pil_image = Image.fromarray(image)
-        else:
-            pil_image = image
+        # Convert image to base64
+        base64_image = image_to_base64(image)
 
-        # Convert to JPEG bytes
-        img_byte_arr = io.BytesIO()
-        pil_image.save(img_byte_arr, format='JPEG')
-        img_byte_arr.seek(0)
-
-        # Prepare request
-        files = {
-            'file': ('posture.jpg', img_byte_arr, 'image/jpeg')
+        # GUIDE COMPLIANT: Send as JSON with messages array
+        request_data = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": base64_image  # Image as base64 in content
+                }
+            ]
         }
 
-        data = {
-            'request': json.dumps({
-                "messages": [
-                    {"role": "user", "content": "Analyze my posture"}
-                ]
-            })
-        }
-
-        # Send to agent
         print("📤 Sending request to agent...")
-        response = requests.post(AGENT_URL, files=files, data=data, timeout=30)
+        print(f"   Request size: {len(json.dumps(request_data))} bytes")
+
+        # Send POST request with JSON body
+        response = requests.post(
+            AGENT_URL,
+            json=request_data,
+            headers={"Content-Type": "application/json"},
+            timeout=30
+        )
 
         print(f"📥 Received response: Status {response.status_code}")
 
@@ -92,36 +107,30 @@ def analyze_posture_image(image):
         result = response.json()
         print(f"📊 Response data: {json.dumps(result, indent=2)}")
 
-        # Parse results
+        # Parse results (same as before)
         if result.get("status") == "error":
             error_msg = result.get("error_message", "Unknown error")
             return f"❌ Analysis Error:\n{error_msg}", None, ""
 
         if result.get("status") == "success":
             data_obj = result.get("data", {})
-
-            # Extract posture analysis
             posture_analysis = data_obj.get("posture_analysis", {})
             main_message = data_obj.get("message", "No feedback available")
 
-            # Extract information with robust fallbacks
             score = posture_analysis.get("posture_score", 0)
             status = posture_analysis.get("posture_status", "unknown")
             feedback = posture_analysis.get("feedback", main_message)
 
-            # Get metrics - handle both dict and missing cases
             metrics = posture_analysis.get("metrics", {})
             if not isinstance(metrics, dict):
                 metrics = {}
 
-            # Get issues - check multiple possible locations
             issues = []
             if "issues" in metrics and isinstance(metrics.get("issues"), list):
                 issues = metrics["issues"]
             elif "issues" in posture_analysis and isinstance(posture_analysis.get("issues"), list):
                 issues = posture_analysis["issues"]
 
-            # Get mediapipe analysis if available
             mp_analysis = posture_analysis.get("mediapipe_analysis", {})
             if mp_analysis and isinstance(mp_analysis, dict):
                 mp_metrics = mp_analysis.get("metrics", {})
@@ -137,12 +146,12 @@ def analyze_posture_image(image):
 
 📊 POSTURE SCORE: {score}/100
 
-📍 STATUS: {status.upper()}
+🔍 STATUS: {status.upper()}
 
 💬 FEEDBACK:
 {feedback}
 
-📏 DETAILED METRICS:
+🔬 DETAILED METRICS:
 • Spine Angle: {metrics.get('spine_angle', 'N/A')}°
 • Shoulder Slope: {metrics.get('shoulder_slope', 'N/A')}
 • Head Forward Distance: {metrics.get('head_forward_distance', 'N/A')}
@@ -158,7 +167,6 @@ def analyze_posture_image(image):
             else:
                 result_text += f"\n✅ NO MAJOR ISSUES DETECTED!\n"
 
-            # Check if hybrid mode and add ML details
             analysis_method = posture_analysis.get("analysis_method", "unknown")
             if analysis_method == "hybrid":
                 dl_class = posture_analysis.get("dl_classification", {})
@@ -167,7 +175,6 @@ def analyze_posture_image(image):
                     result_text += f"  • Predicted Class: {dl_class.get('predicted_class', 'N/A').upper()}\n"
                     result_text += f"  • Confidence: {dl_class.get('confidence', 0)*100:.1f}%\n"
 
-                    # Show all probabilities
                     all_probs = dl_class.get('all_probabilities', {})
                     if all_probs:
                         result_text += f"  • All Probabilities:\n"
@@ -185,21 +192,21 @@ def analyze_posture_image(image):
 
             result_text += f"\n{'='*50}"
 
-            # Create score visualization HTML
+            # Score visualization
             if score >= 85:
-                color = "#28a745"  # Green
+                color = "#28a745"
                 emoji = "🟢"
                 label = "EXCELLENT"
             elif score >= 70:
-                color = "#ffc107"  # Yellow
+                color = "#ffc107"
                 emoji = "🟡"
                 label = "GOOD"
             elif score >= 50:
-                color = "#fd7e14"  # Orange
+                color = "#fd7e14"
                 emoji = "🟠"
                 label = "FAIR"
             else:
-                color = "#dc3545"  # Red
+                color = "#dc3545"
                 emoji = "🔴"
                 label = "POOR"
 
@@ -213,9 +220,8 @@ def analyze_posture_image(image):
             """
 
             # Annotate image
-            annotated_img = np.array(pil_image)
+            annotated_img = np.array(image)
 
-            # Add score overlay
             cv2.putText(
                 annotated_img,
                 f"Score: {score}/100",
@@ -235,15 +241,14 @@ def analyze_posture_image(image):
                 2
             )
 
-            # Add colored indicator
             if score >= 85:
-                indicator_color = (0, 255, 0)  # Green
+                indicator_color = (0, 255, 0)
             elif score >= 70:
-                indicator_color = (0, 255, 255)  # Yellow
+                indicator_color = (0, 255, 255)
             elif score >= 50:
-                indicator_color = (0, 165, 255)  # Orange
+                indicator_color = (0, 165, 255)
             else:
-                indicator_color = (0, 0, 255)  # Red
+                indicator_color = (0, 0, 255)
 
             cv2.circle(annotated_img, (30, 30), 20, indicator_color, -1)
 
@@ -252,11 +257,13 @@ def analyze_posture_image(image):
         return "❌ Unexpected response format from agent", None, ""
 
     except requests.exceptions.ConnectionError:
-        return "❌ Cannot connect to Posture Agent.\n\nMake sure it's running:\n   uvicorn main:app --reload --port 8001", None, ""
+        return "❌ Cannot connect to Posture Agent.\n\nMake sure it's running:\n   python main.py", None, ""
     except requests.exceptions.Timeout:
         return "❌ Request timed out. Agent took too long to respond.", None, ""
     except Exception as e:
-        return f"❌ Error during analysis:\n{str(e)}\n\nDebug info: Check terminal for details", None, ""
+        import traceback
+        error_details = traceback.format_exc()
+        return f"❌ Error during analysis:\n{str(e)}\n\nDebug info:\n{error_details}", None, ""
 
 
 def analyze_webcam(image):
@@ -285,16 +292,15 @@ with gr.Blocks(
     """
 ) as demo:
 
-    # Header
     gr.HTML("""
     <div class="header">
         <h1>🪑 Ergonomic Posture Analyzer</h1>
         <p style="font-size: 1.1em; margin: 10px 0;">AI-Powered Posture Detection Using MediaPipe & Deep Learning</p>
         <p style="font-size: 0.9em; opacity: 0.9;">Upload an image or use your webcam to analyze your sitting posture</p>
+        <p style="font-size: 0.85em; opacity: 0.8; margin-top: 10px;">✅ SPM Agent Guide Compliant</p>
     </div>
     """)
 
-    # Status indicator
     with gr.Row():
         status_box = gr.Textbox(
             label="🔌 Agent Connection Status",
@@ -312,8 +318,7 @@ with gr.Blocks(
     demo.load(fn=update_status, outputs=status_box)
 
     with gr.Tabs():
-        # Tab 1: Upload Image
-        with gr.Tab("📁 Upload Image"):
+        with gr.Tab("📤 Upload Image"):
             gr.Markdown("""
             ### Upload a Photo
             Upload an image showing your upper body and sitting posture. 
@@ -352,32 +357,44 @@ with gr.Blocks(
                 outputs=[result_output, annotated_output, score_display]
             )
 
-        # Tab 2: Webcam
         with gr.Tab("📷 Use Webcam"):
             gr.Markdown("""
             ### Capture from Webcam
             **Setup Instructions:**
-            1. Position yourself 2-3 feet from camera
-            2. Face the camera DIRECTLY (frontal view, not side)
-            3. Ensure upper body is visible
-            4. Make sure lighting is good (light in front, not behind)
-            5. Click the camera icon to capture
-            6. Click "Analyze Webcam Image" button
+            1. Click "Open Webcam" button below
+            2. Allow browser to access your camera when prompted
+            3. Position yourself 2-3 feet from camera
+            4. Face the camera DIRECTLY (frontal view, not side)
+            5. Ensure upper body is visible (shoulders + head + torso)
+            6. Make sure lighting is good (light in front of you)
+            7. Click the **camera shutter button** (📷) to capture a photo
+            8. Click "Analyze Webcam Image" button
+            
+            **Note:** If you don't see the shutter button, try refreshing the page.
             """)
 
             with gr.Row():
                 with gr.Column(scale=1):
                     webcam_input = gr.Image(
-                        label="Webcam Capture",
+                        label="Webcam Capture - Click 📷 to take photo",
                         sources=["webcam"],
                         type="pil",
-                        height=400
+                        height=400,
+                        interactive=True
                     )
-                    webcam_analyze_btn = gr.Button(
-                        "🔍 Analyze Webcam Image",
-                        variant="primary",
-                        size="lg"
-                    )
+                    with gr.Row():
+                        webcam_analyze_btn = gr.Button(
+                            "🔍 Analyze Webcam Image",
+                            variant="primary",
+                            size="lg",
+                            scale=2
+                        )
+                        clear_webcam_btn = gr.Button(
+                            "🗑️ Clear",
+                            variant="secondary",
+                            size="lg",
+                            scale=1
+                        )
 
                 with gr.Column(scale=1):
                     webcam_annotated = gr.Image(
@@ -392,13 +409,19 @@ with gr.Blocks(
                 max_lines=30
             )
 
+            # Button actions
             webcam_analyze_btn.click(
                 fn=analyze_webcam,
                 inputs=webcam_input,
                 outputs=[webcam_result, webcam_annotated, webcam_score]
             )
+            
+            clear_webcam_btn.click(
+                fn=lambda: (None, None, "", ""),
+                inputs=None,
+                outputs=[webcam_input, webcam_annotated, webcam_result, webcam_score]
+            )
 
-        # Tab 3: How to Use
         with gr.Tab("📖 How to Use"):
             gr.Markdown("""
             ## 🎯 How to Get Accurate Results
@@ -421,39 +444,33 @@ with gr.Blocks(
             - ✅ Good lighting (in front of you)
             - ✅ Camera at eye level
             
-            ### ❌ INCORRECT Setup (Will Give Poor Results)
+            ### 📷 Webcam Troubleshooting
             
-            ```
-            ❌ Side View:          ❌ Too Far:           ❌ Backlit:
-               📷                     📷                    💡
-                ├──→ 👤                ├────→ 👤            ├──→ 👤
-            ```
+            **If webcam is not working:**
             
-            ### 🧪 Testing Different Postures
+            1. **Check Browser Permissions**:
+               - Chrome/Edge: Click 🔒 icon in address bar → Camera → Allow
+               - Firefox: Click 🔒 icon → Permissions → Camera → Allow
+               - Safari: Safari menu → Settings for This Website → Camera → Allow
             
-            1. **Good Posture** (Score 85-100):
-               - Sit with back straight
-               - Shoulders relaxed and level
-               - Head aligned with spine
+            2. **Refresh the page** after granting permission
             
-            2. **Slouching** (Score 50-70):
-               - Round shoulders forward
-               - Push head forward
-               - Curve back
+            3. **Check if another app is using camera**:
+               - Close Zoom, Teams, Skype, or other video apps
+               - Only one app can use webcam at a time
             
-            3. **Severe Slouch** (Score 30-50):
-               - Extreme forward head
-               - Hunched shoulders
-               - Very curved back
+            4. **Try different browser**:
+               - Chrome and Edge work best
+               - Try Firefox if others don't work
             
-            ### 🔧 Troubleshooting
+            5. **Look for the camera shutter button (📷)**:
+               - It appears after clicking "Open Webcam"
+               - Click it to capture a photo
+               - The captured image will appear in the box
             
-            | Problem | Solution |
-            |---------|----------|
-            | "No person detected" | Face camera, improve lighting |
-            | Always score 100 | Move closer, ensure upper body visible |
-            | Always low score | Check camera angle and distance |
-            | Connection error | Start agent: `uvicorn main:app --reload --port 8001` |
+            6. **Alternative**: Use the "Upload Image" tab instead
+               - Take a photo with your phone
+               - Transfer to computer and upload
             
             ### 📊 Understanding Scores
             
@@ -464,20 +481,18 @@ with gr.Blocks(
             
             ### 🤖 AI Analysis Modes
             
-            **Hybrid Mode** (Best - when ML model loaded):
+            **Hybrid Mode** (Best):
             - Deep Learning Classification (70% weight)
             - MediaPipe Geometric Analysis (30% weight)
             - Confidence scores and probabilities
             
             **MediaPipe-Only Mode** (Fallback):
             - Rule-based geometric analysis
-            - Angle and distance measurements
-            - Still provides accurate results
+            - Still accurate for most cases
             """)
 
-        # Tab 4: About
         with gr.Tab("ℹ️ About"):
-            gr.Markdown("""
+            gr.Markdown(f"""
             ## 🎯 About This Application
             
             This is an **AI-powered Ergonomic Posture Analyzer** that helps you maintain healthy sitting posture.
@@ -493,45 +508,36 @@ with gr.Blocks(
             ### 🛠️ Technology Stack
             
             - **FastAPI**: Backend REST API
-            - **TensorFlow/Keras**: Deep Learning (99.05% accuracy)
+            - **TensorFlow/Keras**: Deep Learning
             - **MediaPipe**: Pose Detection
             - **OpenCV**: Image Processing
             - **Gradio**: Web Interface
-            - **Python**: Core Language
             
-            ### ⚙️ Requirements
-            
-            Make sure the Posture Agent is running:
-            ```bash
-            uvicorn main:app --reload --port 8001
-            ```
-            
-            ### 📊 Agent Information
+            ### ✅ SPM Agent Guide Compliance
             
             - **Agent Name**: ergonomic-posture-agent
-            - **Version**: 2.0.0
             - **Endpoint**: POST /ergonomic-posture-agent
             - **Health Check**: GET /health
+            - **Port**: 8002
+            - **Format**: Exact AgentRequest/AgentResponse
             
-            ### 🎓 Model Performance
+            ### 📡 Start the Agent
             
-            - **Test Accuracy**: 99.05%
-            - **Training Data**: 1,040+ images
-            - **Classes**: Good, Bad, Old posture
-            - **Architecture**: Transfer Learning (MobileNetV2)
+            ```bash
+            python main.py
+            ```
             
-            ### 👨‍💻 Created By
-            
-            University Software Engineering Project - Semester 7
+            Or with uvicorn:
+            ```bash
+            uvicorn main:app --reload --port 8002
+            ```
             
             ---
             
-            **Version**: 2.0.0  
-            **Last Updated**: November 2025  
+            **Version**: 2.1.0 (Guide Compliant)  
             **Status**: ✅ Production Ready
             """)
 
-    # Footer
     gr.HTML("""
     <div style="text-align: center; padding: 20px; margin-top: 30px; border-top: 2px solid #e0e0e0;">
         <p style="color: #666; font-size: 0.9em;">
@@ -539,14 +545,13 @@ with gr.Blocks(
             and head aligned with your spine. Take breaks every 30 minutes!
         </p>
         <p style="color: #999; font-size: 0.8em; margin-top: 10px;">
-            🔗 Make sure agent is running: <code>uvicorn main:app --reload --port 8001</code>
+            🔗 Make sure agent is running: <code>python main.py</code>
         </p>
     </div>
     """)
 
 
 if __name__ == "__main__":
-    # Check if agent is running before launching
     print("\n" + "="*60)
     print("🚀 Starting Ergonomic Posture Analyzer Web Interface")
     print("="*60)
@@ -557,7 +562,7 @@ if __name__ == "__main__":
     if not is_running:
         print("\n⚠️  WARNING: Posture Agent is not running!")
         print("   Start it first with:")
-        print("   uvicorn main:app --reload --port 8001\n")
+        print("   python main.py\n")
     else:
         print("\n✅ Agent connection successful!")
 

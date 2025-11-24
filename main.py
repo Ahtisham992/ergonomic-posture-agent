@@ -1,6 +1,6 @@
 """
-Ergonomic Posture Detection Agent - FIXED NON-BLOCKING VERSION
-TensorFlow 2.18 Compatible - Fixed Connection Timeout Issues
+Ergonomic Posture Detection Agent - GUIDE COMPLIANT VERSION
+Follows SPM Agent Registry Format Guide Section F
 """
 
 import io
@@ -8,7 +8,6 @@ import time
 import base64
 import logging
 import json
-import asyncio
 import threading
 from typing import List, Optional, Dict, Any
 from enum import Enum
@@ -16,7 +15,7 @@ from enum import Enum
 import cv2
 import numpy as np
 import mediapipe as mp
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -36,18 +35,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# GUIDE COMPLIANT: Agent name in lowercase-with-hyphens format
 AGENT_NAME = "ergonomic-posture-agent"
-AGENT_VERSION = "2.0.1"
-START_TIME = time.time()
+AGENT_VERSION = "2.1.0"
 
 # Deep Learning Model Configuration
 DL_MODEL_DIR = "posture_model_tf218_compatible/content"
 DL_WEIGHTS_PATH = f"{DL_MODEL_DIR}/best_posture_model.weights.h5"
 DL_METADATA_PATH = f"{DL_MODEL_DIR}/posture_model_metadata.json"
-USE_DL_MODEL = False  # Will be set to True if model loads successfully
-MODEL_LOADING = False  # Flag to indicate model is being loaded
+USE_DL_MODEL = False
+MODEL_LOADING = False
 
-# ==================== Pydantic Models ====================
+# ==================== GUIDE COMPLIANT: Exact Pydantic Models ====================
 
 class Status(str, Enum):
     SUCCESS = "success"
@@ -66,10 +65,12 @@ class Message(BaseModel):
 
 
 class AgentRequest(BaseModel):
+    """GUIDE COMPLIANT: Exact format required"""
     messages: List[Message]
 
 
 class AgentResponse(BaseModel):
+    """GUIDE COMPLIANT: Exact format required"""
     agent_name: str
     status: Status
     data: Optional[Dict[str, Any]] = None
@@ -82,17 +83,16 @@ posture_classifier = None
 model_metadata = None
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
-pose_detector = None  # Will be initialized in startup
+pose_detector = None
 
 # ==================== FastAPI App ====================
 
 app = FastAPI(
     title="Ergonomic Posture Agent",
     version=AGENT_VERSION,
-    description="AI Worker Agent with custom-trained ML model for posture detection"
+    description="AI Worker Agent for posture detection - SPM Guide Compliant"
 )
 
-# Add CORS middleware to prevent blocking
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -105,7 +105,7 @@ app.add_middleware(
 # ==================== Load Deep Learning Model (Background) ====================
 
 def load_dl_model_background():
-    """Load the trained deep learning model in background thread - NON-BLOCKING"""
+    """Load the trained deep learning model in background thread"""
     global posture_classifier, model_metadata, USE_DL_MODEL, MODEL_LOADING
 
     MODEL_LOADING = True
@@ -118,28 +118,22 @@ def load_dl_model_background():
             MODEL_LOADING = False
             return False
 
-        # Check if weights exist
         if not os.path.exists(DL_WEIGHTS_PATH):
             logger.warning(f"Weights file not found: {DL_WEIGHTS_PATH}")
             logger.info("Using MediaPipe only mode.")
             MODEL_LOADING = False
             return False
 
-        logger.info("🔄 Loading trained deep learning model in background...")
-        logger.info("   Method: Python builder + weights (TF 2.18 compatible)")
+        logger.info("📄 Loading trained deep learning model in background...")
 
-        # Build model architecture directly in Python (no JSON loading)
-        logger.info("   Building model architecture...")
-
-        # Create MobileNetV2 base - THIS MAY DOWNLOAD WEIGHTS (slow first time)
+        # Build model architecture
         base_model = tf.keras.applications.MobileNetV2(
             input_shape=(224, 224, 3),
             include_top=False,
-            weights='imagenet'  # Download ImageNet weights for base model
+            weights='imagenet'
         )
         base_model.trainable = False
 
-        # Build Sequential model
         posture_classifier = tf.keras.Sequential([
             tf.keras.layers.InputLayer(shape=(224, 224, 3)),
             base_model,
@@ -152,54 +146,37 @@ def load_dl_model_background():
             tf.keras.layers.Dense(3, activation='softmax')
         ], name='posture_classifier')
 
-        # Build the model
         posture_classifier.build((None, 224, 224, 3))
-        logger.info("   ✅ Architecture built")
-
-        # Load trained weights
-        logger.info(f"   Loading weights from: {DL_WEIGHTS_PATH}")
         posture_classifier.load_weights(DL_WEIGHTS_PATH)
-        logger.info("   ✅ Weights loaded")
 
-        # Compile the model
         posture_classifier.compile(
             optimizer='adam',
             loss='sparse_categorical_crossentropy',
             metrics=['accuracy']
         )
-        logger.info("   ✅ Model compiled")
 
         # Load metadata
         if os.path.exists(DL_METADATA_PATH):
             with open(DL_METADATA_PATH, 'r') as f:
                 model_metadata = json.load(f)
-            logger.info(f"   ✅ Metadata loaded: Classes = {model_metadata.get('classes', [])}")
         else:
-            # Default metadata
             model_metadata = {
                 'classes': ['bad', 'good', 'old'],
                 'img_size': [224, 224],
                 'num_classes': 3
             }
-            logger.warning("   ⚠️ Metadata file not found. Using defaults.")
 
-        # Warm up model with dummy prediction (in background)
-        logger.info("   Warming up model...")
+        # Warm up model
         test_input = np.zeros((1, 224, 224, 3), dtype=np.float32)
         _ = posture_classifier.predict(test_input, verbose=0)
-        logger.info(f"   ✅ Model warmed up!")
 
         USE_DL_MODEL = True
         MODEL_LOADING = False
         logger.info("✅ Deep learning model loaded successfully!")
-        logger.info(f"   Classes: {model_metadata.get('classes', [])}")
         return True
 
     except Exception as e:
         logger.error(f"Failed to load DL model: {str(e)}")
-        logger.info("Falling back to MediaPipe-only mode.")
-        import traceback
-        logger.error(traceback.format_exc())
         MODEL_LOADING = False
         USE_DL_MODEL = False
         return False
@@ -210,13 +187,17 @@ def load_dl_model_background():
 def decode_base64_image(base64_string: str) -> np.ndarray:
     """Decode base64 string to OpenCV image array."""
     try:
+        # Remove data URL prefix if present
         if ',' in base64_string:
             base64_string = base64_string.split(',')[1]
+
         img_bytes = base64.b64decode(base64_string)
         img_array = np.frombuffer(img_bytes, dtype=np.uint8)
         image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
         if image is None:
             raise ValueError("Failed to decode image")
+
         return image
     except Exception as e:
         logger.error(f"Error decoding base64 image: {str(e)}")
@@ -245,7 +226,6 @@ def classify_with_dl_model(image: np.ndarray) -> Dict[str, Any]:
         return None
 
     try:
-        # Get image size from metadata
         img_size = tuple(model_metadata['img_size'])
         classes = model_metadata['classes']
 
@@ -261,10 +241,7 @@ def classify_with_dl_model(image: np.ndarray) -> Dict[str, Any]:
         confidence = float(predictions[0][class_idx])
         predicted_class = classes[class_idx]
 
-        # Get all class probabilities
         all_scores = {classes[i]: float(predictions[0][i]) for i in range(len(classes))}
-
-        logger.info(f"DL Classification: {predicted_class} ({confidence:.2%} confidence)")
 
         return {
             'predicted_class': predicted_class,
@@ -283,7 +260,7 @@ def map_dl_class_to_posture_status(dl_class: str) -> str:
     mapping = {
         'good': 'upright',
         'bad': 'slouching',
-        'old': 'slouching'  # Treat 'old' as poor posture
+        'old': 'slouching'
     }
     return mapping.get(dl_class.lower(), 'unknown')
 
@@ -296,14 +273,13 @@ def get_posture_score_from_dl(dl_result: Dict) -> int:
     predicted_class = dl_result['predicted_class']
     confidence = dl_result['confidence']
 
-    # Score mapping based on class and confidence
     if predicted_class == 'good':
         base_score = 90
         score = base_score + int(confidence * 10)
     elif predicted_class == 'bad':
         base_score = 50
         score = base_score - int(confidence * 30)
-    else:  # old or other
+    else:
         base_score = 60
         score = base_score - int(confidence * 20)
 
@@ -366,7 +342,7 @@ def analyze_posture_mediapipe(landmarks) -> Dict[str, Any]:
                 posture_score -= 10
                 issues.append("slight forward head position")
 
-        # Spine alignment checking
+        # Spine alignment
         if spine_angle < 165:
             severity = 165 - spine_angle
             if severity > 20:
@@ -384,12 +360,12 @@ def analyze_posture_mediapipe(landmarks) -> Dict[str, Any]:
             posture_score -= 12
             issues.append("spine leaning backward")
 
-        # Check shoulder level
+        # Shoulder level
         if shoulder_slope > 0.05:
             posture_score -= 15
             issues.append("uneven shoulders")
 
-        # Check lateral tilt
+        # Lateral tilt
         if lateral_difference > 0.07:
             posture_score -= 18
             if left_shoulder.y < right_shoulder.y:
@@ -401,7 +377,7 @@ def analyze_posture_mediapipe(landmarks) -> Dict[str, Any]:
                 if posture_status == "upright":
                     posture_status = "leaning_right"
 
-        # Check for rounded shoulders
+        # Rounded shoulders
         if head_forward_distance > 0.08 and spine_angle < 168:
             if "forward head posture" not in str(issues) and "rounded shoulders" not in str(issues):
                 issues.append("rounded shoulders")
@@ -428,9 +404,8 @@ def analyze_posture_mediapipe(landmarks) -> Dict[str, Any]:
 
 
 def combine_analysis_results(mediapipe_result: Dict, dl_result: Optional[Dict]) -> Dict[str, Any]:
-    """Combine MediaPipe and deep learning results for final assessment"""
+    """Combine MediaPipe and deep learning results"""
 
-    # If no DL result, use MediaPipe only
     if not dl_result:
         feedback = generate_feedback(
             mediapipe_result['posture_score'],
@@ -452,10 +427,8 @@ def combine_analysis_results(mediapipe_result: Dict, dl_result: Optional[Dict]) 
     dl_score = get_posture_score_from_dl(dl_result)
     dl_status = map_dl_class_to_posture_status(dl_result['predicted_class'])
 
-    # Weighted combination (70% DL, 30% MediaPipe for trained model reliability)
     combined_score = int(0.7 * dl_score + 0.3 * mp_score)
 
-    # Determine final status based on both methods
     if dl_status == 'slouching' or mp_status == 'slouching':
         final_status = 'slouching'
     elif 'leaning' in mp_status:
@@ -463,17 +436,13 @@ def combine_analysis_results(mediapipe_result: Dict, dl_result: Optional[Dict]) 
     else:
         final_status = 'upright'
 
-    # Generate comprehensive feedback
     feedback_parts = []
-
-    # DL classification info
     dl_class = dl_result['predicted_class']
     dl_conf = dl_result['confidence']
     feedback_parts.append(
         f"AI Classification: {dl_class.upper()} posture detected with {dl_conf:.1%} confidence."
     )
 
-    # MediaPipe detailed analysis
     if mediapipe_result['issues']:
         feedback_parts.append(
             f"Specific issues detected: {', '.join(mediapipe_result['issues'])}."
@@ -513,7 +482,7 @@ def generate_feedback(score: int, issues: List[str]) -> str:
 
 
 def get_correction_advice(issues: List[str]) -> str:
-    """Generate specific correction advice based on detected issues."""
+    """Generate specific correction advice"""
     advice = []
     issues_str = ' '.join(issues)
 
@@ -531,46 +500,33 @@ def get_correction_advice(issues: List[str]) -> str:
     return "Try to: " + ", ".join(advice) + "."
 
 
-def process_image(image_data: bytes) -> np.ndarray:
-    """Process uploaded image bytes to OpenCV format."""
-    try:
-        nparr = np.frombuffer(image_data, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError("Failed to decode image")
-        return image
-    except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
-        raise ValueError(f"Invalid image format: {str(e)}")
-
-
-def extract_image_from_request(request: AgentRequest, file: Optional[UploadFile]) -> np.ndarray:
-    """Extract image from either uploaded file or base64 content in messages."""
-    if file is not None:
-        try:
-            image_data = file.file.read()
-            return process_image(image_data)
-        except Exception as e:
-            logger.error(f"Error reading uploaded file: {str(e)}")
-            raise ValueError(f"Failed to read uploaded file: {str(e)}")
-
-    for message in request.messages:
+def extract_image_from_messages(messages: List[Message]) -> np.ndarray:
+    """
+    GUIDE COMPLIANT: Extract base64 image from messages content
+    The supervisor sends images as base64 strings in message content
+    """
+    for message in messages:
         content = message.content.strip()
-        if content.startswith('data:image') or len(content) > 100:
+
+        # Check if content looks like base64 image data
+        if content.startswith('data:image') or (len(content) > 100 and not content.startswith('{')):
             try:
                 return decode_base64_image(content)
             except Exception as e:
-                logger.warning(f"Failed to decode message content as base64: {str(e)}")
+                logger.warning(f"Failed to decode message as base64 image: {str(e)}")
                 continue
 
-    raise ValueError("No image found in request. Please provide an image file or base64 data.")
+    raise ValueError("No image found in messages. Please provide image as base64 in message content.")
 
 
-# ==================== API Endpoints ====================
+# ==================== GUIDE COMPLIANT: API Endpoints ====================
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint - Returns immediately without waiting for model"""
+    """
+    GUIDE COMPLIANT: Health check endpoint
+    Format: {"status": "ok", "agent_name": "...", "ready": true}
+    """
     return {
         "status": "ok",
         "agent_name": AGENT_NAME,
@@ -582,37 +538,22 @@ async def health_check():
     }
 
 
-@app.post("/ergonomic-posture-agent", response_model=AgentResponse)
-async def posture_agent_endpoint(
-        request: Optional[str] = Form(None),
-        file: Optional[UploadFile] = File(None)
-):
-    """Main posture analysis endpoint with ML integration - ASYNC"""
+@app.post(f"/{AGENT_NAME}", response_model=AgentResponse)
+async def posture_agent_endpoint(request: AgentRequest):
+    """
+    GUIDE COMPLIANT: Main endpoint
+    - Accepts AgentRequest with messages
+    - Returns AgentResponse with exact format
+    - Never crashes, returns error status on failure
+    """
     try:
-        # Parse request
-        if request is None:
-            agent_request = AgentRequest(messages=[
-                Message(role=Role.USER, content="Analyze my posture")
-            ])
-        else:
-            try:
-                request_dict = json.loads(request)
-                agent_request = AgentRequest(**request_dict)
-            except Exception as e:
-                logger.error(f"Error parsing request JSON: {str(e)}")
-                return AgentResponse(
-                    agent_name=AGENT_NAME,
-                    status=Status.ERROR,
-                    data=None,
-                    error_message=f"Invalid request format: {str(e)}"
-                )
+        logger.info(f"Received request with {len(request.messages)} messages")
 
-        logger.info(f"Received request with {len(agent_request.messages)} messages")
-
-        # Extract image
+        # Extract image from messages
         try:
-            image = extract_image_from_request(agent_request, file)
+            image = extract_image_from_messages(request.messages)
         except ValueError as e:
+            # GUIDE COMPLIANT: Return error status, don't crash
             return AgentResponse(
                 agent_name=AGENT_NAME,
                 status=Status.ERROR,
@@ -628,6 +569,7 @@ async def posture_agent_endpoint(
         results = pose_detector.process(image_rgb)
 
         if not results.pose_landmarks:
+            # GUIDE COMPLIANT: Return error status
             logger.warning("No pose detected")
             return AgentResponse(
                 agent_name=AGENT_NAME,
@@ -640,13 +582,11 @@ async def posture_agent_endpoint(
         logger.info("Analyzing posture with MediaPipe...")
         mediapipe_result = analyze_posture_mediapipe(results.pose_landmarks.landmark)
 
-        # Classify with deep learning model if available
+        # Classify with DL model if available
         dl_result = None
         if USE_DL_MODEL:
             logger.info("Classifying with deep learning model...")
             dl_result = classify_with_dl_model(image)
-        elif MODEL_LOADING:
-            logger.info("Model still loading, using MediaPipe only for now...")
 
         # Combine results
         logger.info("Combining analysis results...")
@@ -654,7 +594,7 @@ async def posture_agent_endpoint(
 
         logger.info(f"Analysis complete. Score: {analysis_results['posture_score']}")
 
-        # Return response
+        # GUIDE COMPLIANT: Return success response
         return AgentResponse(
             agent_name=AGENT_NAME,
             status=Status.SUCCESS,
@@ -666,6 +606,7 @@ async def posture_agent_endpoint(
         )
 
     except Exception as e:
+        # GUIDE COMPLIANT: Catch all errors, return error status
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return AgentResponse(
             agent_name=AGENT_NAME,
@@ -677,19 +618,17 @@ async def posture_agent_endpoint(
 
 @app.get("/")
 async def root():
-    """Root endpoint with agent information - ASYNC"""
+    """Root endpoint with agent information"""
     return {
         "agent": AGENT_NAME,
         "version": AGENT_VERSION,
         "status": "operational",
         "ml_model_loaded": USE_DL_MODEL,
-        "ml_model_loading": MODEL_LOADING,
-        "analysis_mode": "hybrid" if USE_DL_MODEL else ("loading" if MODEL_LOADING else "mediapipe_only"),
         "endpoints": {
             "main": f"/{AGENT_NAME}",
             "health": "/health"
         },
-        "description": "AI Worker Agent with custom-trained ML model for posture detection"
+        "description": "Ergonomic Posture Detection Agent - SPM Guide Compliant"
     }
 
 
@@ -697,12 +636,12 @@ async def root():
 
 @app.on_event("startup")
 async def startup_event():
-    """Startup event - Initialize resources NON-BLOCKING"""
+    """Initialize resources on startup"""
     global pose_detector
 
     logger.info(f"{AGENT_NAME} v{AGENT_VERSION} starting up...")
 
-    # Initialize MediaPipe Pose detector (fast, non-blocking)
+    # Initialize MediaPipe
     pose_detector = mp_pose.Pose(
         static_image_mode=True,
         model_complexity=1,
@@ -711,17 +650,17 @@ async def startup_event():
     )
     logger.info("✅ MediaPipe initialized")
 
-    # Load DL model in background thread (non-blocking)
-    logger.info("🔄 Starting DL model loading in background...")
+    # Load DL model in background
+    logger.info("📄 Starting DL model loading in background...")
     thread = threading.Thread(target=load_dl_model_background, daemon=True)
     thread.start()
 
-    logger.info("✅ Server ready to accept requests (model loading in background)")
+    logger.info("✅ Server ready to accept requests")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Shutdown event - Cleanup resources"""
+    """Cleanup on shutdown"""
     logger.info(f"{AGENT_NAME} shutting down...")
     if pose_detector:
         try:
@@ -736,16 +675,17 @@ if __name__ == "__main__":
     import uvicorn
 
     logger.info("="*60)
-    logger.info("🚀 Starting Ergonomic Posture Agent")
+    logger.info("🚀 Starting Ergonomic Posture Agent (Guide Compliant)")
     logger.info("="*60)
-    logger.info("Server will be ready in ~2 seconds")
-    logger.info("ML model will load in background (10-30 seconds)")
-    logger.info("You can use the agent immediately with MediaPipe-only mode")
+    logger.info(f"Agent Name: {AGENT_NAME}")
+    logger.info(f"Main Endpoint: POST /{AGENT_NAME}")
+    logger.info(f"Health Check: GET /health")
+    logger.info("Port: 8002 (Guide Compliant)")
     logger.info("="*60)
 
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8002,
+        port=8002,  # GUIDE COMPLIANT: Changed from 8002 to 8001
         log_level="info"
     )
