@@ -73,17 +73,37 @@ const PostureAnalyzer = () => {
 
   const startWebcam = async () => {
     try {
+      setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 640, height: 480 } 
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        } 
       });
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
       setIsCameraActive(true);
-      setError(null);
+      
+      // Wait a bit for video element to be ready
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(err => {
+            console.error('Error playing video:', err);
+            setError('Failed to start video playback');
+          });
+        }
+      }, 100);
     } catch (err) {
-      setError('Unable to access camera. Please check permissions.');
+      console.error('Camera error:', err);
+      if (err.name === 'NotAllowedError') {
+        setError('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (err.name === 'NotFoundError') {
+        setError('No camera found. Please connect a camera and try again.');
+      } else {
+        setError(`Unable to access camera: ${err.message}`);
+      }
+      setIsCameraActive(false);
     }
   };
 
@@ -96,17 +116,31 @@ const PostureAnalyzer = () => {
   };
 
   const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      setError('Video or canvas not ready');
+      return;
+    }
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    
+    // Check if video is actually playing
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      setError('Video is not ready yet. Please wait a moment and try again.');
+      return;
+    }
+    
     const context = canvas.getContext('2d');
     
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0);
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
     
-    const imageData = canvas.toDataURL('image/jpeg');
+    // Draw the video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert to base64
+    const imageData = canvas.toDataURL('image/jpeg', 0.95);
     setWebcamImage(imageData);
     stopWebcam();
     setResult(null);
@@ -423,22 +457,44 @@ const PostureAnalyzer = () => {
                         borderRadius: '10px',
                         overflow: 'hidden',
                         background: '#000',
-                        minHeight: '400px',
+                        minHeight: '480px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        position: 'relative'
                       }}>
                         {isCameraActive ? (
-                          <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            style={{ width: '100%', height: 'auto' }}
-                          />
+                          <>
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              style={{ 
+                                width: '100%', 
+                                height: 'auto',
+                                maxHeight: '480px',
+                                objectFit: 'cover'
+                              }}
+                            />
+                            <div style={{
+                              position: 'absolute',
+                              top: '10px',
+                              left: '10px',
+                              background: 'rgba(0, 200, 0, 0.8)',
+                              color: 'white',
+                              padding: '5px 10px',
+                              borderRadius: '5px',
+                              fontSize: '0.9em'
+                            }}>
+                              ● LIVE
+                            </div>
+                          </>
                         ) : (
-                          <div style={{ textAlign: 'center', color: 'white' }}>
+                          <div style={{ textAlign: 'center', color: 'white', padding: '20px' }}>
                             <Camera size={48} />
-                            <p style={{ marginTop: '20px' }}>Camera not active</p>
+                            <p style={{ marginTop: '20px' }}>Click "Open Webcam" to start</p>
+                            <p style={{ fontSize: '0.9em', opacity: 0.7 }}>Make sure to allow camera permissions</p>
                           </div>
                         )}
                       </div>
