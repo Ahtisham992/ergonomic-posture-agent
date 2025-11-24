@@ -1,8 +1,5 @@
-fastapi
-uvicorn[standard]
-numpy
-opencv-python-headless
-mediapipe
-pydantic
-huggingface-hub
-# (do NOT include tensorflow unless you REALLY need it — it's huge and may fail in free Space)
+gradio==4.44.0
+requests==2.31.0
+Pillow==10.1.0
+opencv-python-headless==4.8.1.78
+numpy==1.24.3

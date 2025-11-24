@@ -1,9 +1,13 @@
 ---
-
-title: Ergonomic Posture AI Agent
-sdk: docker
-app_port: 7860
---------------
+title: Ergonomic Posture Analyzer
+emoji: 🪑
+colorFrom: blue
+colorTo: purple
+sdk: gradio
+sdk_version: 4.44.0
+app_file: app.py
+pinned: false
+---
 
 # Ergonomic Posture Assessment Agent (FastAPI - Docker Space)
 

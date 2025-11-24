@@ -12,9 +12,10 @@ from PIL import Image
 import io
 import base64
 
-# UPDATED: Correct port and endpoint
-AGENT_URL = "http://localhost:8002/ergonomic-posture-agent"
-HEALTH_URL = "http://localhost:8002/health"
+# UPDATED: Correct port and endpoint for Hugging Face Space
+AGENT_URL = "https://ahtisham992-ergonomic-posture-agent.hf.space/ergonomic-posture-agent"
+HEALTH_URL = "https://ahtisham992-ergonomic-posture-agent.hf.space/health"
+
 
 
 def check_agent_status():
