@@ -147,6 +147,10 @@ const PostureAnalyzer = () => {
       });
 
       const data = await response.json();
+      
+      // Debug logging
+      console.log('Full API Response:', JSON.stringify(data, null, 2));
+      console.log('Posture Analysis:', data.data?.posture_analysis);
 
       if (data.status === 'error') {
         setError(data.error_message || 'Analysis failed');
@@ -155,15 +159,35 @@ const PostureAnalyzer = () => {
 
       if (data.status === 'success' && data.data) {
         const analysis = data.data.posture_analysis;
+        
+        // Extract metrics from mediapipe_analysis if not in top level
+        let metrics = analysis.metrics || {};
+        let issues = analysis.issues || [];
+        
+        // Check if metrics are nested in mediapipe_analysis
+        if (analysis.mediapipe_analysis) {
+          const mpAnalysis = analysis.mediapipe_analysis;
+          if (mpAnalysis.metrics && Object.keys(metrics).length === 0) {
+            metrics = mpAnalysis.metrics;
+          }
+          if (mpAnalysis.issues && issues.length === 0) {
+            issues = mpAnalysis.issues;
+          }
+        }
+        
+        console.log('Parsed metrics:', metrics);
+        console.log('Parsed issues:', issues);
+        
         setResult({
           score: analysis.posture_score,
           status: analysis.posture_status,
           feedback: analysis.feedback || data.data.message,
-          metrics: analysis.metrics || {},
-          issues: analysis.issues || [],
+          metrics: metrics,
+          issues: issues,
           method: analysis.analysis_method,
           dlClassification: analysis.dl_classification,
-          scores: analysis.scores
+          scores: analysis.scores,
+          mediapipeAnalysis: analysis.mediapipe_analysis
         });
       }
     } catch (err) {
@@ -675,7 +699,7 @@ const ResultDisplay = ({ result }) => {
           </ul>
         </div>
 
-        {result.issues && result.issues.length > 0 && (
+        {result.issues && result.issues.length > 0 ? (
           <>
             <h3 style={{ color: '#dc3545', marginTop: '20px', marginBottom: '10px' }}>⚠️ ISSUES DETECTED</h3>
             <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
@@ -686,9 +710,7 @@ const ResultDisplay = ({ result }) => {
               </ul>
             </div>
           </>
-        )}
-
-        {result.issues && result.issues.length === 0 && (
+        ) : (
           <div style={{ 
             background: '#d4edda', 
             padding: '15px', 
