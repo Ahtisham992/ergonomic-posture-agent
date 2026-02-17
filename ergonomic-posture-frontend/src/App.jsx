@@ -1213,12 +1213,80 @@ function LandingPage({ onEnterApp }) {
    ANALYZER SUB-COMPONENTS
 ───────────────────────────────────────────────────────────────────────── */
 function StatusPill({ status, onRefresh }) {
+  // Determine overall label + colour
+  const offline    = !status.ready;
+  const hybridFull = status.ready && status.mlModel;
+  const pipeOnly   = status.ready && !status.mlModel;
+
+  const overallColor = offline ? 'var(--danger)' : hybridFull ? 'var(--good)' : 'var(--warn)';
+  const overallLabel = offline ? 'Offline' : hybridFull ? 'Hybrid Mode' : 'MediaPipe Only';
+
   return (
-    <button className={`epa-status-pill ${status.ready ? 'online' : 'offline'}`} onClick={onRefresh}>
-      <span className={`dot ${status.ready ? 'pulse' : ''}`} />
-      {status.ready ? 'Agent Online' : 'Agent Offline'}
-      <RefreshCw size={11} />
-    </button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Individual indicators */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* MediaPipe indicator */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: status.mediapipe ? 'var(--good)' : 'var(--danger)',
+          background: status.mediapipe ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.07)',
+          border: `1px solid ${status.mediapipe ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
+          padding: '4px 9px', borderRadius: 99,
+        }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+            background: status.mediapipe ? 'var(--good)' : 'var(--danger)',
+            boxShadow: status.mediapipe ? '0 0 0 0 rgba(16,185,129,0.5)' : 'none',
+            animation: status.mediapipe ? 'pulseGlow 1.8s ease-in-out infinite' : 'none',
+          }} />
+          MediaPipe
+        </div>
+
+        {/* ML Model indicator */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: status.mlModel ? 'var(--good)' : status.ready ? 'var(--warn)' : 'var(--danger)',
+          background: status.mlModel ? 'rgba(16,185,129,0.07)' : status.ready ? 'rgba(245,158,11,0.07)' : 'rgba(239,68,68,0.07)',
+          border: `1px solid ${status.mlModel ? 'rgba(16,185,129,0.2)' : status.ready ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'}`,
+          padding: '4px 9px', borderRadius: 99,
+        }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+            background: status.mlModel ? 'var(--good)' : status.ready ? 'var(--warn)' : 'var(--danger)',
+          }} />
+          DL Model
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{ width: 1, height: 20, background: 'var(--border-hi)' }} />
+
+      {/* Overall pill + refresh */}
+      <button
+        onClick={onRefresh}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontFamily: 'var(--font-mono)', fontSize: 11,
+          color: overallColor,
+          background: 'transparent',
+          border: `1px solid ${overallColor}33`,
+          padding: '5px 11px', borderRadius: 99,
+          cursor: 'pointer', transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = `${overallColor}0f`}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+      >
+        <span style={{
+          width: 6, height: 6, borderRadius: '50%',
+          background: overallColor, flexShrink: 0,
+          animation: hybridFull ? 'pulseGlow 1.8s ease-in-out infinite' : 'none',
+        }} />
+        {overallLabel}
+        <RefreshCw size={10} />
+      </button>
+    </div>
   );
 }
 
@@ -1604,16 +1672,23 @@ function GuidePage() {
 ───────────────────────────────────────────────────────────────────────── */
 function AnalyzerApp({ onBack }) {
   const [page, setPage] = useState('upload');
-  const [agentStatus, setAgentStatus] = useState({ ready: false });
+  const [agentStatus, setAgentStatus] = useState({ ready: false, mlModel: false, mediapipe: false, mode: null, agentName: null });
 
   const checkStatus = async () => {
     try {
       const res = await fetch(HEALTH_URL);
       const d = await res.json();
-      setAgentStatus({ ready: !!d.ready });
-    } catch { setAgentStatus({ ready: false }); }
+      setAgentStatus({
+        ready:     !!d.ready,
+        mlModel:   !!d.ml_model_loaded,
+        mediapipe: d.ready,
+        mode:      d.analysis_mode || null,
+        agentName: d.agent_name || null,
+      });
+    } catch {
+      setAgentStatus({ ready: false, mlModel: false, mediapipe: false, mode: null });
+    }
   };
-
   useEffect(() => { checkStatus(); }, []);
 
   const NAV = [

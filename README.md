@@ -1,14 +1,3 @@
----
-title: Ergonomic Posture Analyzer
-emoji: 🪑
-colorFrom: blue
-colorTo: purple
-sdk: gradio
-sdk_version: 4.44.0
-app_file: app.py
-pinned: false
----
-
 # Ergonomic Posture Assessment Agent (FastAPI - Docker Space)
 
 This Space hosts an AI Agent that analyzes human posture from an uploaded image and returns ergonomic feedback.
