@@ -1015,22 +1015,28 @@ const GLOBAL_CSS = `
   }
 
   /* ══════════════════════════════════════════
-     TABLET  (≤960px)
+     TABLET + MOBILE  (≤960px)
   ══════════════════════════════════════════ */
   @media (max-width: 960px) {
+
     /* ── Analyzer shell ── */
     .epa-shell {
       grid-template-columns: 1fr;
-      grid-template-rows: auto 1fr auto;
-      grid-template-areas: "topbar" "main" "footer";
+      grid-template-rows: auto 1fr;
+      grid-template-areas: "topbar" "main";
     }
     .epa-sidebar { display: none; }
-    .epa-main { padding: 20px 16px 100px; } /* bottom pad for tab bar */
-    .epa-content-grid { grid-template-columns: 1fr; }
+    .epa-footer  { display: none; }
+    .epa-main { padding: 20px 14px 90px; }
+    .epa-content-grid { grid-template-columns: 1fr; gap: 14px; }
     .guide-grid { grid-template-columns: 1fr; }
-    .epa-footer { display: none; }
 
-    /* Bottom tab bar shows */
+    /* ── Topbar: no overflow ── */
+    .epa-topbar { padding: 0 14px; overflow: hidden; }
+    /* Hide the two detail pills — only show overall summary */
+    .status-detail-pills { display: none !important; }
+
+    /* ── Bottom tab bar ── */
     .mobile-tab-bar {
       display: flex;
       position: fixed;
@@ -1038,94 +1044,92 @@ const GLOBAL_CSS = `
       z-index: 200;
       background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+      padding: 6px 0 max(6px, env(safe-area-inset-bottom));
     }
     .mob-tab {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       padding: 6px 4px;
       border: none;
       background: transparent;
       color: var(--muted);
       font-family: var(--font-mono);
       font-size: 9px;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
       cursor: pointer;
-      border-radius: 8px;
       transition: color 0.15s;
     }
     .mob-tab.active { color: var(--accent); }
-    .mob-tab svg { flex-shrink: 0; }
 
-    /* Topbar on mobile — hide status details, keep essentials */
-    .epa-topbar { padding: 0 16px; }
-    .status-detail-pills { display: none; }
-
-    /* Landing */
+    /* ── Landing nav ── */
     .land-nav { padding: 0 16px; }
     .land-nav-links { display: none; }
     .mobile-menu-btn { display: flex; }
-    .land-features, .land-how { padding: 60px 16px; }
+
+    /* ── Landing sections ── */
+    .land-hero { padding: 96px 20px 60px; }
+    .hero-stats { gap: 16px; padding-top: 28px; margin-top: 40px; }
+    .stat-divider { display: none; }
+    .land-features, .land-how { padding: 56px 16px; }
+    .land-docs-section { padding: 56px 16px !important; }
     .features-grid { grid-template-columns: 1fr; gap: 12px; }
-    .how-steps { grid-template-columns: 1fr 1fr; gap: 32px 16px; }
+    .land-docs-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+    .how-steps { grid-template-columns: 1fr 1fr; gap: 28px 12px; }
     .how-steps::before { display: none; }
     .land-cta-banner { margin: 0 16px 60px; padding: 40px 20px; }
     .land-footer { padding: 20px 16px; flex-direction: column; gap: 6px; text-align: center; }
-    .hero-stats { gap: 20px; padding-top: 32px; margin-top: 48px; }
-    .stat-divider { display: none; }
-    .land-hero { padding: 100px 20px 60px; }
   }
 
   /* ══════════════════════════════════════════
-     MOBILE (≤640px)
+     SMALL MOBILE (≤480px)
   ══════════════════════════════════════════ */
-  @media (max-width: 640px) {
-    /* Topbar status — show only overall pill */
-    .epa-topbar { height: 52px; gap: 8px; }
-    .epa-back-btn span { display: none; }
+  @media (max-width: 480px) {
 
-    /* Cards */
-    .epa-card { padding: 16px; }
-    .epa-page-title { font-size: 20px; }
-    .epa-page-sub { font-size: 12px; margin-bottom: 18px; }
+    /* ── Topbar ── */
+    .epa-topbar { height: 50px; padding: 0 12px; }
+    .epa-version { display: none; }
+    .epa-logo { font-size: 14px; }
+    .epa-back-btn { padding: 4px 8px; font-size: 11px; }
 
-    /* Score block stacks vertically */
-    .result-score-block { flex-direction: column; gap: 14px; }
-    .score-number { font-size: 52px; }
+    /* ── App pages ── */
+    .epa-main { padding: 16px 12px 86px; }
+    .epa-card { padding: 14px; }
+    .epa-page-title { font-size: 19px; letter-spacing: -0.3px; }
+    .epa-page-sub { font-size: 12px; margin-bottom: 16px; }
 
-    /* Drop zone */
-    .drop-zone { min-height: 160px; padding: 20px 16px; }
-
-    /* Buttons full width on small screens */
+    /* ── Inputs ── */
+    .drop-zone { min-height: 150px; padding: 20px 14px; }
     .btn-row { flex-direction: column; }
-    .btn-row .btn { min-width: unset; }
+    .btn-row .btn { min-width: unset; width: 100%; }
 
-    /* Hero */
-    .hero-title { font-size: 34px; letter-spacing: -1.5px; }
-    .hero-sub { font-size: 14px; }
-    .hero-actions { flex-direction: column; width: 100%; }
-    .btn-hero-primary, .btn-hero-secondary { width: 100%; justify-content: center; }
-    .hero-stats { grid-template-columns: 1fr 1fr; display: grid; gap: 20px; }
-    .stat-divider { display: none; }
+    /* ── Results ── */
+    .result-score-block { flex-direction: column; gap: 12px; }
+    .score-number { font-size: 48px; }
 
-    /* Features single col already; just tighten */
-    .feature-card { padding: 20px; }
-    .how-steps { grid-template-columns: 1fr; gap: 28px; }
+    /* ── Hero ── */
+    .hero-title { font-size: 30px; letter-spacing: -1px; }
+    .hero-badge { font-size: 10px; }
+    .hero-sub { font-size: 13px; }
+    .hero-actions { flex-direction: column; width: 100%; gap: 10px; }
+    .btn-hero-primary,
+    .btn-hero-secondary { width: 100%; justify-content: center; padding: 13px 20px; }
+    .hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .stat-num { font-size: 22px; }
+
+    /* ── Feature & docs cards ── */
+    .feature-card { padding: 18px; }
+    .how-steps { grid-template-columns: 1fr; gap: 24px; }
     .how-step { padding: 0; }
-
-    /* Landing docs section */
     .land-docs-grid { grid-template-columns: 1fr !important; }
 
-    /* CTA banner */
-    .land-cta-banner { padding: 32px 16px; margin: 0 12px 48px; border-radius: 14px; }
-    .cta-banner-title { font-size: 22px; }
-
-    /* Nav logo version tag hidden */
-    .epa-version { display: none; }
+    /* ── CTA ── */
+    .land-cta-banner { padding: 28px 14px; margin: 0 10px 40px; border-radius: 12px; }
+    .cta-banner-title { font-size: 20px; }
+    .btn-hero-primary { font-size: 14px; }
   }
 `;
 
@@ -1343,13 +1347,13 @@ function LandingPage({ onEnterApp }) {
       </section>
 
       {/* DOCUMENTATION SECTION */}
-      <section ref={docsRef} style={{ padding: '80px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <section ref={docsRef} className="land-docs-section" style={{ padding: '80px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <div className="section-eyebrow">Documentation</div>
         <h2 className="section-title">Setup & scoring guide</h2>
         <p className="section-sub" style={{ marginBottom: 40 }}>
           Follow these guidelines to get the most accurate results from the analyzer.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div className="land-docs-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {[
             {
               color: '#00e5b4',
