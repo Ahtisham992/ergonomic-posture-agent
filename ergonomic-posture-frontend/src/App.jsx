@@ -932,21 +932,200 @@ const GLOBAL_CSS = `
     color: var(--muted);
   }
 
-  /* ── Responsive ── */
+  /* ══════════════════════════════════════════
+     MOBILE BOTTOM TAB BAR (analyzer)
+  ══════════════════════════════════════════ */
+  .mobile-tab-bar {
+    display: none;
+  }
+
+  /* ══════════════════════════════════════════
+     MOBILE NAV MENU (landing)
+  ══════════════════════════════════════════ */
+  .mobile-menu-btn {
+    display: none;
+    background: none;
+    border: 1px solid var(--border-hi);
+    border-radius: 7px;
+    padding: 7px 9px;
+    cursor: pointer;
+    color: var(--text);
+    align-items: center;
+    justify-content: center;
+  }
+  .mobile-menu-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(7,10,16,0.97);
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+  }
+  .mobile-menu-overlay.open { display: flex; }
+  .mobile-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    height: 60px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .mobile-menu-links {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px;
+    gap: 4px;
+    flex: 1;
+  }
+  .mobile-menu-link {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    font-size: 16px;
+    font-family: var(--font-head);
+    font-weight: 600;
+    color: var(--muted);
+    border-radius: 10px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    text-align: left;
+    transition: background 0.15s, color 0.15s;
+    letter-spacing: -0.3px;
+  }
+  .mobile-menu-link:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .mobile-menu-cta {
+    margin: 8px 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* ══════════════════════════════════════════
+     TABLET  (≤960px)
+  ══════════════════════════════════════════ */
   @media (max-width: 960px) {
-    .epa-shell { grid-template-columns: 1fr; grid-template-areas: "topbar" "main" "footer"; }
+    /* ── Analyzer shell ── */
+    .epa-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas: "topbar" "main" "footer";
+    }
     .epa-sidebar { display: none; }
+    .epa-main { padding: 20px 16px 100px; } /* bottom pad for tab bar */
     .epa-content-grid { grid-template-columns: 1fr; }
     .guide-grid { grid-template-columns: 1fr; }
-    .epa-main { padding: 20px; }
-    .land-nav { padding: 0 20px; }
-    .land-features, .land-how { padding: 60px 20px; }
-    .features-grid { grid-template-columns: 1fr; }
-    .how-steps { grid-template-columns: 1fr 1fr; }
-    .land-cta-banner { margin: 0 20px 60px; padding: 40px 24px; }
-    .land-footer { padding: 20px; }
-    .hero-stats { gap: 28px; }
+    .epa-footer { display: none; }
+
+    /* Bottom tab bar shows */
+    .mobile-tab-bar {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 200;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+    }
+    .mob-tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 4px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: color 0.15s;
+    }
+    .mob-tab.active { color: var(--accent); }
+    .mob-tab svg { flex-shrink: 0; }
+
+    /* Topbar on mobile — hide status details, keep essentials */
+    .epa-topbar { padding: 0 16px; }
+    .status-detail-pills { display: none; }
+
+    /* Landing */
+    .land-nav { padding: 0 16px; }
     .land-nav-links { display: none; }
+    .mobile-menu-btn { display: flex; }
+    .land-features, .land-how { padding: 60px 16px; }
+    .features-grid { grid-template-columns: 1fr; gap: 12px; }
+    .how-steps { grid-template-columns: 1fr 1fr; gap: 32px 16px; }
+    .how-steps::before { display: none; }
+    .land-cta-banner { margin: 0 16px 60px; padding: 40px 20px; }
+    .land-footer { padding: 20px 16px; flex-direction: column; gap: 6px; text-align: center; }
+    .hero-stats { gap: 20px; padding-top: 32px; margin-top: 48px; }
+    .stat-divider { display: none; }
+    .land-hero { padding: 100px 20px 60px; }
+  }
+
+  /* ══════════════════════════════════════════
+     MOBILE (≤640px)
+  ══════════════════════════════════════════ */
+  @media (max-width: 640px) {
+    /* Topbar status — show only overall pill */
+    .epa-topbar { height: 52px; gap: 8px; }
+    .epa-back-btn span { display: none; }
+
+    /* Cards */
+    .epa-card { padding: 16px; }
+    .epa-page-title { font-size: 20px; }
+    .epa-page-sub { font-size: 12px; margin-bottom: 18px; }
+
+    /* Score block stacks vertically */
+    .result-score-block { flex-direction: column; gap: 14px; }
+    .score-number { font-size: 52px; }
+
+    /* Drop zone */
+    .drop-zone { min-height: 160px; padding: 20px 16px; }
+
+    /* Buttons full width on small screens */
+    .btn-row { flex-direction: column; }
+    .btn-row .btn { min-width: unset; }
+
+    /* Hero */
+    .hero-title { font-size: 34px; letter-spacing: -1.5px; }
+    .hero-sub { font-size: 14px; }
+    .hero-actions { flex-direction: column; width: 100%; }
+    .btn-hero-primary, .btn-hero-secondary { width: 100%; justify-content: center; }
+    .hero-stats { grid-template-columns: 1fr 1fr; display: grid; gap: 20px; }
+    .stat-divider { display: none; }
+
+    /* Features single col already; just tighten */
+    .feature-card { padding: 20px; }
+    .how-steps { grid-template-columns: 1fr; gap: 28px; }
+    .how-step { padding: 0; }
+
+    /* Landing docs section */
+    .land-docs-grid { grid-template-columns: 1fr !important; }
+
+    /* CTA banner */
+    .land-cta-banner { padding: 32px 16px; margin: 0 12px 48px; border-radius: 14px; }
+    .cta-banner-title { font-size: 22px; }
+
+    /* Nav logo version tag hidden */
+    .epa-version { display: none; }
   }
 `;
 
@@ -967,8 +1146,10 @@ function LandingPage({ onEnterApp }) {
   const featuresRef = useRef(null);
   const howRef      = useRef(null);
   const docsRef     = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const scrollTo = (ref) => {
+    setMenuOpen(false);
     if (ref.current) {
       ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1042,7 +1223,36 @@ function LandingPage({ onEnterApp }) {
             Open Analyzer <ArrowRight size={13} />
           </button>
         </div>
+        {/* Hamburger — mobile only */}
+        <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)}>
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+            <rect width="18" height="2" rx="1" fill="currentColor"/>
+            <rect y="6" width="12" height="2" rx="1" fill="currentColor"/>
+            <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+          </svg>
+        </button>
       </nav>
+
+      {/* MOBILE MENU OVERLAY */}
+      <div className={`mobile-menu-overlay ${menuOpen ? 'open' : ''}`}>
+        <div className="mobile-menu-header">
+          <div className="land-nav-logo">
+            <div className="logo-chip"><Zap size={14} /></div>
+            PostureAI
+          </div>
+          <button className="mobile-menu-btn" style={{ display: 'flex' }} onClick={() => setMenuOpen(false)}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="mobile-menu-links">
+          <button className="mobile-menu-link" onClick={() => scrollTo(featuresRef)}>Features</button>
+          <button className="mobile-menu-link" onClick={() => scrollTo(howRef)}>How It Works</button>
+          <button className="mobile-menu-link" onClick={() => scrollTo(docsRef)}>Documentation</button>
+        </div>
+        <button className="mobile-menu-cta" onClick={() => { setMenuOpen(false); onEnterApp(); }}>
+          Open Analyzer <ArrowRight size={16} />
+        </button>
+      </div>
 
       {/* HERO */}
       <section className="land-hero">
@@ -1223,8 +1433,8 @@ function StatusPill({ status, onRefresh }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      {/* Individual indicators */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* Individual indicators — hidden on small screens via .status-detail-pills */}
+      <div className="status-detail-pills" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {/* MediaPipe indicator */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5,
@@ -1261,7 +1471,7 @@ function StatusPill({ status, onRefresh }) {
       </div>
 
       {/* Divider */}
-      <div style={{ width: 1, height: 20, background: 'var(--border-hi)' }} />
+      <div className="status-detail-pills" style={{ width: 1, height: 20, background: 'var(--border-hi)' }} />
 
       {/* Overall pill + refresh */}
       <button
@@ -1697,12 +1907,18 @@ function AnalyzerApp({ onBack }) {
     { id: 'guide',  label: 'Documentation',  icon: <Activity size={15} /> },
   ];
 
+  const TABS = [
+    { id: 'upload', label: 'Upload',  icon: <Upload size={20} /> },
+    { id: 'webcam', label: 'Webcam',  icon: <Camera size={20} /> },
+    { id: 'guide',  label: 'Docs',    icon: <Activity size={20} /> },
+  ];
+
   return (
     <div className="epa-shell page-enter">
       <header className="epa-topbar">
         <div className="epa-topbar-left">
           <button className="epa-back-btn" onClick={onBack}>
-            ← Back
+            <span>←</span> <span>Back</span>
           </button>
           <div className="epa-logo">
             <div className="epa-logo-icon"><Zap size={13} /></div>
@@ -1740,6 +1956,16 @@ function AnalyzerApp({ onBack }) {
         <span>Powered by MediaPipe + Deep Learning</span>
         <span>© 2025 PostureAI — Ergonomic Analysis System</span>
       </footer>
+
+      {/* Mobile bottom tab bar */}
+      <div className="mobile-tab-bar">
+        {TABS.map(t => (
+          <button key={t.id} className={`mob-tab ${page === t.id ? 'active' : ''}`} onClick={() => setPage(t.id)}>
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
